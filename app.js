@@ -72,8 +72,9 @@ let S = (() => {
   try { d = JSON.parse(localStorage.getItem(KEY)); } catch { /* 壞資料就重來 */ }
   if (!d) {
     // 全新狀態：不提早 return，讓下面的預設值（cardFee、recentCurs…）一併補齊
+    // needsSetup＝第一次打開，引導先建立自己的旅程
     const t = newTrip('日本旅遊');
-    d = { trips: [t], active: t.id, rates: {} };
+    d = { trips: [t], active: t.id, rates: {}, needsSetup: true };
   }
   if (!d.trips) {
     // 舊版單旅程格式 → 自動搬進第一個旅程，舊記錄付款方式預設現金
@@ -119,6 +120,13 @@ const nameOf = code => code === 'TWD' ? '台幣' : curOf(code).name;
 const decOf = code => code === 'TWD' ? false : curOf(code).dec;
 // 第三方幣別 → 旅程主貨幣（走市場牌價交叉換算）
 const toMain = (v, code) => v * rateFor(code) / rateFor(T().cur);
+// 牌價幾天前抓的（沒抓過回 null；手動設定視為永遠新鮮）
+const rateAgeDays = code => {
+  const r = R(code);
+  if (r.manual) return 0;
+  if (!r.ts) return null;
+  return Math.floor((Date.now() - r.ts) / 864e5);
+};
 
 async function fetchRate(force = false, code = null) {
   code = code || T().cur;
@@ -654,6 +662,8 @@ function closeSheets() {
   $('dateSheet').classList.remove('show');
   $('daySheet').classList.remove('show');
   $('noteInput').blur();
+  // 首次引導被關掉就不再跳（用預設旅程也行，之後可自己新增）
+  if (S.needsSetup) { S.needsSetup = false; save(); }
 }
 function renderSheetAmount() {
   const v = Number(sheetAmount || 0);
@@ -664,16 +674,21 @@ function renderSheetAmount() {
   const r = payRate(sheetPay); // 現金／刷卡各用各的匯率
   const rd = r >= 1 ? 2 : 4;
   const tag = sheetPay === 'card' ? '刷卡匯率' : '匯率';
+  // 牌價過期標示：只有真的在用「自動牌價」時才顯示（現金用換匯匯率就不標）
+  const thirdCur = sheetCur !== T().cur && sheetCur !== 'TWD';
+  const usingMarket = thirdCur || sheetPay === 'card' || !tripRate();
+  const age = rateAgeDays(sheetCur === 'TWD' ? T().cur : sheetCur);
+  const stale = (usingMarket && age !== null && age >= 1) ? `（${age} 天前的牌價）` : '';
   if (sheetCur === T().cur) {
     // 主貨幣輸入 → 顯示台幣
-    $('amountTwd').textContent = `≈ NT$${fmt(v * r)} · ${tag} ${r.toFixed(rd)}`;
+    $('amountTwd').textContent = `≈ NT$${fmt(v * r)} · ${tag} ${r.toFixed(rd)}${stale}`;
   } else if (sheetCur === 'TWD') {
     // 台幣輸入 → 顯示主貨幣
-    $('amountTwd').textContent = `≈ ${CUR().sym}${fmtLoc(v / r)} · ${tag} ${r.toFixed(rd)}`;
+    $('amountTwd').textContent = `≈ ${CUR().sym}${fmtLoc(v / r)} · ${tag} ${r.toFixed(rd)}${stale}`;
   } else {
     // 第三方幣別輸入 → 同時顯示主貨幣與台幣
     const mv = toMain(v, sheetCur);
-    $('amountTwd').textContent = `≈ ${CUR().sym}${fmtLoc(mv)} · NT$${fmt(mv * r)}`;
+    $('amountTwd').textContent = `≈ ${CUR().sym}${fmtLoc(mv)} · NT$${fmt(mv * r)}${stale}`;
   }
 }
 /* 記到哪一天：按鈕與選擇面板 */
@@ -766,6 +781,8 @@ function openDateSheet() {
 
 /* ---------- 新增旅程面板 ---------- */
 function openTripSheet() {
+  // 首次開啟時改成歡迎語，引導建立自己的旅程
+  $('tripSheetTitle').textContent = S.needsSetup ? '建立你的第一個旅程' : '新增旅程';
   $('newTripName').value = '';
   $('newTripCur').value = 'JPY';
   $('newTripStart').value = todayStr();
@@ -804,6 +821,11 @@ $('btnCreateTrip').onclick = () => {
   const exJpy = parseInt($('newTripExJpy').value, 10) || null;
   const t = newTrip(name, start, end, exTwd, exJpy, $('newTripCur').value);
   S.trips.unshift(t);
+  // 首次引導建立的旅程：把一開始自動生成的空白預設旅程換掉
+  if (S.needsSetup) {
+    S.trips = S.trips.filter(x => x.id === t.id || x.entries.length > 0);
+    S.needsSetup = false;
+  }
   S.active = t.id;
   selectedDate = todayStr(); clampSelected();
   save(); closeSheets(); showView('view-home');
@@ -990,6 +1012,8 @@ for (const id of ['tripCurSelect', 'newTripCur']) {
 }
 clampSelected();
 renderAll();
+// 第一次打開：直接引導建立旅程
+if (S.needsSetup) setTimeout(openTripSheet, 350);
 fetchRate();
 window.addEventListener('online', () => fetchRate());
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
