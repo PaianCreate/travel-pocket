@@ -95,6 +95,10 @@ button { border: 0; background: none; cursor: pointer; }
 }
 .chip-accent { background: var(--accent); color: #21251E; }
 
+/* 現金日預算提示 */
+.cash-hint { margin-top: 10px; font-size: .8rem; color: var(--ink-2); }
+.cash-hint b { font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+
 /* ===== 天數選擇列 ===== */
 .day-chips {
   display: flex; gap: 8px; overflow-x: auto; margin: 0 -22px 18px;
@@ -266,6 +270,26 @@ button { border: 0; background: none; cursor: pointer; }
 }
 .sheet.show { transform: none; }
 .sheet-grip { width: 36px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 14px; }
+
+/* 記到哪一天 */
+.sheet-day {
+  display: flex; align-items: center; gap: 5px; margin: 0 auto 10px;
+  background: var(--card); border-radius: 999px; padding: 6px 14px;
+  font-size: .78rem; color: var(--ink-2);
+}
+.sheet-day b { color: var(--ink); font-weight: 600; }
+.day-grid { grid-template-columns: repeat(4, 1fr); }
+
+/* 分類明細清單 */
+.cat-entries { list-style: none; margin-top: 4px; }
+.cat-entries:empty { display: none; }
+.cat-entries li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 2px; border-top: 1px solid var(--line); font-size: .84rem;
+}
+.ce-note { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ce-day { color: var(--muted); font-size: .74rem; flex: 0 0 auto; }
+.ce-amt { font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .amount-block { text-align: center; margin-bottom: 16px; }
 .amount-jpy { font-size: 2.9rem; font-weight: 650; letter-spacing: -.03em; line-height: 1.1; }

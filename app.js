@@ -182,6 +182,7 @@ let sheetAmount = '';
 let sheetCat = 'food';
 let sheetCur = 'JPY';   // 輸入幣別（'TWD' 或任一貨幣代碼，預設＝旅程主貨幣）
 let sheetPay = 'cash';  // 付款方式
+let sheetDate = null;   // 這筆記到哪一天（日期字串）
 let openedRow = null;
 let donutFocus = null;
 let barFocus = null;
@@ -303,6 +304,31 @@ function renderHome() {
     cashChip.hidden = false;
     cashChip.textContent = `現金剩 ${CUR().sym}${fmtLoc(T().exJpy - cashSpent())}`;
   } else cashChip.hidden = true;
+
+  // 現金日預算／續航提示
+  const hint = $('cashHint');
+  hint.hidden = true;
+  if (T().exJpy) {
+    const cashLeft = T().exJpy - cashSpent();
+    const today = todayStr();
+    const dToday = dayOfDate(today);
+    if (T().end && today >= T().start && today <= T().end && cashLeft > 0) {
+      // 有回程日：剩餘現金 ÷ 剩餘天數 ＝ 每天還可以花多少
+      const daysLeft = dayOfDate(T().end) - dToday + 1;
+      hint.hidden = false;
+      hint.innerHTML = `到回程還 ${daysLeft} 天，現金每天可花 <b>${CUR().sym}${fmtLoc(cashLeft / daysLeft)}</b>`;
+    } else if (!T().end && dToday >= 1 && cashLeft > 0) {
+      // 沒回程日：照目前燒錢速度估現金還能撐幾天
+      const burn = cashSpent() / Math.max(dToday, 1);
+      if (burn > 0) {
+        hint.hidden = false;
+        hint.innerHTML = `照目前速度，現金還能撐約 <b>${Math.floor(cashLeft / burn)} 天</b>`;
+      }
+    } else if (cashLeft <= 0) {
+      hint.hidden = false;
+      hint.innerHTML = `現金已用完，超支 <b>${CUR().sym}${fmtLoc(-cashLeft)}</b>`;
+    }
+  }
 
   // 天數列
   const chips = $('dayChips');
@@ -467,6 +493,24 @@ function renderDonut(total) {
     li.onclick = () => { donutFocus = donutFocus === d.id ? null : d.id; renderStats(); };
     lg.appendChild(li);
   }
+
+  // 點選分類 → 列出該分類的每一筆明細（點明細可跳到那一天）
+  const ce = $('catEntries');
+  ce.innerHTML = '';
+  if (donutFocus) {
+    const cat = CATS.find(c => c.id === donutFocus);
+    const list = E().filter(e => e.cat === donutFocus)
+      .sort((a, b) => ((a.date + a.time) < (b.date + b.time) ? 1 : -1));
+    for (const e of list) {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span class="ce-note">${e.note ? escapeHtml(e.note) : cat.name}</span>
+        <span class="ce-day">Day ${dayOfDate(e.date)} · ${shortDate(e.date)}</span>
+        <span class="ce-amt">${CUR().sym}${fmtLoc(e.jpy)}</span>`;
+      li.onclick = () => { selectedDate = e.date; showView('view-home'); };
+      ce.appendChild(li);
+    }
+  }
 }
 function arcPath(cx, cy, R, r, a0, a1) {
   const large = a1 - a0 > Math.PI ? 1 : 0;
@@ -560,6 +604,8 @@ function openSheet(entry = null) {
   sheetCat = entry ? entry.cat : 'food';
   sheetPay = entry ? (entry.pay || 'cash') : 'cash';
   sheetCur = T().cur; // 每次打開回到旅程主貨幣（編輯時存的就是主貨幣金額）
+  sheetDate = entry ? entry.date : selectedDate; // 這筆記到哪一天
+  renderSheetDayBtn();
   $('noteInput').value = entry ? entry.note : '';
   $('btnDelete').hidden = !entry;
   $('btnSave').textContent = entry ? '儲存修改' : '記一筆';
@@ -606,6 +652,7 @@ function closeSheets() {
   $('tripSheet').classList.remove('show');
   $('curSheet').classList.remove('show');
   $('dateSheet').classList.remove('show');
+  $('daySheet').classList.remove('show');
   $('noteInput').blur();
 }
 function renderSheetAmount() {
@@ -629,6 +676,29 @@ function renderSheetAmount() {
     $('amountTwd').textContent = `≈ ${CUR().sym}${fmtLoc(mv)} · NT$${fmt(mv * r)}`;
   }
 }
+/* 記到哪一天：按鈕與選擇面板 */
+function renderSheetDayBtn() {
+  $('sheetDayBtn').innerHTML = `記到 <b>Day ${dayOfDate(sheetDate)}</b> · ${shortDate(sheetDate)} <span class="caret">▼</span>`;
+}
+function openDaySheet() {
+  const grid = $('dayGrid');
+  grid.innerHTML = '';
+  const n = tripDayCount();
+  for (let i = 1; i <= n; i++) {
+    const ds = dateOfDay(i);
+    const b = document.createElement('button');
+    b.className = ds === sheetDate ? 'active' : '';
+    b.innerHTML = `<b>Day ${i}</b>${shortDate(ds)}`;
+    b.onclick = () => {
+      sheetDate = ds;
+      renderSheetDayBtn();
+      $('daySheet').classList.remove('show');
+    };
+    grid.appendChild(b);
+  }
+  $('daySheet').classList.add('show');
+}
+
 /* 幣別按鈕與選擇面板 */
 function renderCurBtn() {
   $('curBtn').innerHTML = `${symOf(sheetCur)} ${nameOf(sheetCur)} <span class="caret">▼</span>`;
@@ -760,6 +830,7 @@ $('keypad').onclick = ev => {
 
 // 幣別／付款方式切換
 $('curBtn').onclick = openCurSheet;
+$('sheetDayBtn').onclick = openDaySheet;
 document.querySelectorAll('#payToggle button').forEach(b => {
   b.onclick = () => { sheetPay = b.dataset.pay; renderPayToggle(); renderSheetAmount(); };
 });
@@ -779,6 +850,7 @@ $('btnSave').onclick = () => {
     const e = E().find(x => x.id === editingId);
     if (e) {
       e.jpy = jpy; e.cat = sheetCat; e.note = note; e.pay = sheetPay;
+      e.date = sheetDate;                     // 編輯可以改天
       delete e.oc; delete e.oa;               // 編輯後以主貨幣為準
       Object.assign(e, orig);
     }
@@ -786,7 +858,7 @@ $('btnSave').onclick = () => {
     const now = new Date();
     E().push({
       id: uid(),
-      date: selectedDate,
+      date: sheetDate, // 記到面板上選的那一天
       time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
       jpy, cat: sheetCat, note, pay: sheetPay, ...orig
     });

@@ -39,6 +39,8 @@
       <span class="chip" id="heroCountChip">0 筆</span>
       <span class="chip chip-accent" id="heroCashChip" hidden></span>
     </div>
+    <!-- 現金日預算／續航提示 -->
+    <div class="cash-hint" id="cashHint" hidden></div>
   </section>
 
   <!-- 天數選擇列（Day 1、Day 2…水平捲動） -->
@@ -79,6 +81,8 @@
     </div>
     <!-- 分類清單：同時是圖例與數據表 -->
     <ul class="cat-legend" id="catLegend"></ul>
+    <!-- 點選分類後的明細清單 -->
+    <ul class="cat-entries" id="catEntries"></ul>
   </section>
 
   <!-- 每日支出 -->
@@ -194,6 +198,8 @@
 <div class="sheet-mask" id="sheetMask"></div>
 <section class="sheet" id="entrySheet" aria-label="輸入消費">
   <div class="sheet-grip" aria-hidden="true"></div>
+  <!-- 這筆會記到哪一天（點了可改） -->
+  <button class="sheet-day" id="sheetDayBtn"></button>
   <div class="amount-block">
     <div class="amount-jpy"><span class="yen" id="curSymbol">¥</span><span id="amountShow">0</span></div>
     <div class="amount-twd" id="amountTwd">≈ NT$0</div>
@@ -253,6 +259,13 @@
   <div class="sheet-actions">
     <button class="btn-save" id="btnCreateTrip">建立旅程</button>
   </div>
+</section>
+
+<!-- ===== 記到哪一天面板 ===== -->
+<section class="sheet cur-sheet" id="daySheet" aria-label="選擇記到哪一天">
+  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="sheet-title">這筆記到哪一天？</div>
+  <div class="cur-grid day-grid" id="dayGrid"></div>
 </section>
 
 <!-- ===== 旅程日期面板（從主頁 Day 列直接開） ===== -->
