@@ -21,8 +21,9 @@
 <!-- ===== 頁面 1：記帳（主頁） ===== -->
 <main id="view-home" class="view active">
   <header class="page-head">
-    <h1>Travel Pocket<span class="dot">.</span></h1>
-    <p class="subtitle" id="homeSubtitle">日本旅費記帳</p>
+    <!-- 旅程名稱＝首頁標題，點一下改名與改日期 -->
+    <h1 class="h1-edit" id="tripTitle"></h1>
+    <p class="subtitle" id="homeSubtitle"></p>
     <!-- 進入旅程列表 -->
     <button class="head-btn" id="btnTrips" aria-label="切換旅程"><span class="tab-icon" data-icon="trip"></span></button>
   </header>
@@ -112,21 +113,14 @@
 
   <section class="card">
     <div class="card-label">目前旅程</div>
-    <label class="setting-row">
-      <span>旅程名稱</span>
-      <input type="text" id="tripNameInput" maxlength="20">
-    </label>
+    <!-- 名稱與日期統一由「旅程資訊」面板編輯，避免兩處不同步 -->
+    <button class="setting-row row-btn" id="btnEditTrip">
+      <span>名稱與日期</span>
+      <span class="row-val" id="tripInfoShow"></span>
+    </button>
     <label class="setting-row">
       <span>當地貨幣</span>
       <select id="tripCurSelect"></select>
-    </label>
-    <label class="setting-row">
-      <span>去程日期</span>
-      <input type="date" id="tripStartInput">
-    </label>
-    <label class="setting-row">
-      <span>回程日期</span>
-      <input type="date" id="tripEndInput">
     </label>
     <label class="setting-row">
       <span>換匯台幣<br><span class="muted small">實際付的台幣</span></span>

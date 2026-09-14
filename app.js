@@ -49,6 +49,7 @@ const ICONS = {
   settings:`<svg viewBox="0 0 24 24" ${STROKE}><path d="M21 5h-6M9 5H3M21 12h-4M11 12H3M21 19h-9M6 19H3"/><path d="M12 3v4M14 10v4M9 17v4"/></svg>`,
   trip:    `<svg viewBox="0 0 24 24" ${STROKE}><rect x="4.5" y="7" width="15" height="14" rx="2.5"/><path d="M9.5 7V5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v2M8.5 7v14M15.5 7v14"/></svg>`,
   cal:     `<svg viewBox="0 0 24 24" ${STROKE}><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>`,
+  pen:     `<svg class="pen" viewBox="0 0 24 24" ${STROKE}><path d="M4 20h4L20.5 7.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="M14.5 5.5l4 4"/></svg>`,
 };
 
 /* ---------- 資料存取 ---------- */
@@ -299,7 +300,9 @@ function renderHome() {
   const list = entriesOf(selectedDate);
   const total = sumJpy(list);
 
-  $('homeSubtitle').textContent = `${T().name} · Day ${dayN}${T().end ? ` / ${n}` : ''} · ${prettyDate(selectedDate)}`;
+  // 標題＝旅程名（點了可改），副標只留 Day 與日期
+  $('tripTitle').innerHTML = `<span class="t-text">${escapeHtml(T().name)}<span class="dot">.</span></span>${ICONS.pen}`;
+  $('homeSubtitle').textContent = `Day ${dayN}${T().end ? ` / ${n}` : ''} · ${prettyDate(selectedDate)}`;
   $('heroDayLabel').textContent = isToday ? '今日支出' : `Day ${dayN} 支出`;
   $('heroYen').textContent = CUR().sym;
   $('heroJpy').textContent = fmtLoc(total);
@@ -584,10 +587,8 @@ function renderBars(n) {
 
 /* ---------- 設定 ---------- */
 function renderSettings() {
-  $('tripNameInput').value = T().name;
+  $('tripInfoShow').textContent = `${T().name} · ${shortDate(T().start)}${T().end ? ` – ${shortDate(T().end)}` : ''}`;
   $('tripCurSelect').value = T().cur;
-  $('tripStartInput').value = T().start;
-  $('tripEndInput').value = T().end || '';
   $('tripExTwdInput').value = T().exTwd || '';
   $('tripExJpyInput').value = T().exJpy || '';
   const r = R(T().cur), tr = tripRate();
@@ -800,6 +801,7 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 document.querySelectorAll('.tab-icon').forEach(el => { el.innerHTML = ICONS[el.dataset.icon]; });
 $('btnTrips').onclick = () => showView('view-trips');
+$('tripTitle').onclick = openDateSheet;
 $('btnNewTrip').onclick = openTripSheet;
 
 // 旅程資訊面板：完成（名稱＋日期一起存）
@@ -901,27 +903,13 @@ $('btnDelete').onclick = () => {
 $('fabAdd').onclick = () => openSheet();
 $('sheetMask').onclick = closeSheets;
 
-// 設定：目前旅程
-$('tripNameInput').onchange = ev => {
-  T().name = ev.target.value.trim() || T().name;
-  ev.target.value = T().name;
-  save(); renderAll();
-};
+// 設定：目前旅程（名稱與日期都在「旅程資訊」面板改）
+$('btnEditTrip').onclick = openDateSheet;
 $('tripCurSelect').onchange = ev => {
   T().cur = ev.target.value;
   T().exTwd = T().exJpy = null; // 換匯金額是舊貨幣的數字，換幣別後清掉重填
   save(); renderAll();
   fetchRate(); // 抓新貨幣的牌價
-};
-$('tripStartInput').onchange = ev => {
-  if (!ev.target.value) return;
-  T().start = ev.target.value;
-  clampSelected(); save(); renderAll();
-};
-$('tripEndInput').onchange = ev => {
-  T().end = ev.target.value || null;
-  if (T().end && T().end < T().start) T().end = null;
-  clampSelected(); save(); renderAll();
 };
 $('tripExTwdInput').onchange = ev => {
   T().exTwd = parseInt(ev.target.value, 10) || null;
