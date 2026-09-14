@@ -30,7 +30,7 @@
   <!-- 當日大數字 -->
   <section class="hero">
     <div class="hero-label" id="heroDayLabel">今日支出</div>
-    <div class="hero-num"><span class="hero-yen">¥</span><span id="heroJpy">0</span></div>
+    <div class="hero-num"><span class="hero-yen" id="heroYen">¥</span><span id="heroJpy">0</span></div>
     <div class="chip-row">
       <span class="chip" id="heroTwdChip">≈ NT$0</span>
       <span class="chip" id="heroCountChip">0 筆</span>
@@ -55,7 +55,7 @@
   <!-- 旅程總計大數字 -->
   <section class="hero">
     <div class="hero-label">旅程總支出</div>
-    <div class="hero-num"><span class="hero-yen">¥</span><span id="totalJpy">0</span></div>
+    <div class="hero-num"><span class="hero-yen" id="totalYen">¥</span><span id="totalJpy">0</span></div>
     <div class="chip-row">
       <span class="chip chip-accent" id="totalTwdChip">≈ NT$0</span>
       <span class="chip" id="totalDaysChip">0 天</span>
@@ -110,6 +110,10 @@
       <input type="text" id="tripNameInput" maxlength="20">
     </label>
     <label class="setting-row">
+      <span>當地貨幣</span>
+      <select id="tripCurSelect"></select>
+    </label>
+    <label class="setting-row">
       <span>去程日期</span>
       <input type="date" id="tripStartInput">
     </label>
@@ -122,13 +126,13 @@
       <input type="text" inputmode="numeric" id="tripExTwdInput" placeholder="未填">
     </label>
     <label class="setting-row">
-      <span>換到日圓<br><span class="muted small">實際拿到的日圓</span></span>
+      <span>換到當地貨幣<br><span class="muted small">實際拿到的金額</span></span>
       <input type="text" inputmode="numeric" id="tripExJpyInput" placeholder="未填">
     </label>
   </section>
 
   <section class="card">
-    <div class="card-label">匯率 · 日圓 → 台幣</div>
+    <div class="card-label" id="rateCardLabel">匯率 · 日圓 → 台幣</div>
     <div class="setting-row">
       <span>自動匯率</span>
       <span class="num" id="autoRateShow">—</span>
@@ -211,6 +215,10 @@
   <div class="sheet-title">新增旅程</div>
   <input type="text" class="note-input" id="newTripName" placeholder="城市名稱，例：東京" maxlength="20">
   <label class="setting-row">
+    <span>當地貨幣</span>
+    <select id="newTripCur"></select>
+  </label>
+  <label class="setting-row">
     <span>去程日期</span>
     <input type="date" id="newTripStart">
   </label>
@@ -224,7 +232,7 @@
     <input type="text" inputmode="numeric" id="newTripExTwd" placeholder="例：25000">
   </label>
   <label class="setting-row">
-    <span>換到日圓</span>
+    <span>換到當地貨幣</span>
     <input type="text" inputmode="numeric" id="newTripExJpy" placeholder="例：118000">
   </label>
   <div class="sheet-actions">

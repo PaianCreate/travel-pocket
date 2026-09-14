@@ -186,10 +186,10 @@ button { border: 0; background: none; cursor: pointer; }
   gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); font-size: .92rem;
 }
 .setting-row:first-of-type { border-top: 0; }
-.setting-row input[type="date"], .setting-row input[type="text"] {
+.setting-row input[type="date"], .setting-row input[type="text"], .setting-row select {
   background: var(--card-2); border: 0; border-radius: 12px;
-  padding: 9px 12px; font-size: .92rem; text-align: right; max-width: 150px;
-  appearance: none; -webkit-appearance: none;
+  padding: 9px 12px; font-size: .92rem; text-align: right; max-width: 170px;
+  appearance: none; -webkit-appearance: none; color: var(--ink);
 }
 .btn-small {
   background: var(--card-2); border-radius: 999px; padding: 8px 14px;
