@@ -1,5 +1,5 @@
 /* ============================================
-   Pocket Bill — 日本旅遊記帳（多旅程版）
+   Travel Pocket — 日本旅遊記帳（多旅程版）
    資料只存 localStorage，斷網可用
    結構：S.trips[] 每個旅程各自有名稱/日期區間/換匯/記錄
    ============================================ */
@@ -12,7 +12,7 @@ const CATS = [
   { id: 'transit', name: '交通', hex: '#0E93A6' },
   { id: 'shop',    name: '購物', hex: '#B58300' },
   { id: 'stay',    name: '住宿', hex: '#7B5EA7' },
-  { id: 'ticket',  name: '門票', hex: '#35854A' },
+  { id: 'ticket',  name: '娛樂', hex: '#35854A' }, // id 沿用 ticket，舊記錄不受影響
   { id: 'other',   name: '其他', hex: '#2E77BE' },
 ];
 
@@ -796,7 +796,7 @@ $('importFile').onchange = async ev => {
   try { j = JSON.parse(await file.text()); } catch { alert('這個檔案不是有效的備份檔'); return; }
   // 支援新格式（trips）與最早的單旅程格式（entries）
   if (!j || (!Array.isArray(j.trips) && !Array.isArray(j.entries))) {
-    alert('這個檔案不是 Pocket Bill 的備份檔'); return;
+    alert('這個檔案不是 Travel Pocket 的備份檔'); return;
   }
   if (Array.isArray(j.entries)) { // 最早格式 → 包成一個旅程
     const t = newTrip('日本旅遊', j.tripStart);
