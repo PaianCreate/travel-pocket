@@ -103,6 +103,8 @@ if (dayOfDate(selectedDate) < 1) selectedDate = S.tripStart;
 let editingId = null;                    // 編輯中的記錄 id
 let sheetAmount = '';                    // 輸入面板的金額字串
 let sheetCat = 'food';
+let sheetCur = 'jpy';                    // 輸入幣別：'jpy' 或 'twd'
+let openedRow = null;                    // 目前左滑展開的那一列
 let donutFocus = null;                   // 圓環圖目前點選的分類
 let barFocus = null;                     // 長條圖目前點選的天
 
@@ -141,23 +143,75 @@ function renderHome() {
     ul.innerHTML = `<li class="empty">這天還沒有記錄<br>按右下角 + 記第一筆</li>`;
     return;
   }
+  openedRow = null;
   for (const e of list) {
     const cat = CATS.find(c => c.id === e.cat) || CATS[5];
     const li = document.createElement('li');
-    li.className = 'entry';
+    li.className = 'entry-row';
     li.innerHTML = `
-      <span class="e-icon">${ICONS[cat.id]}</span>
-      <span class="e-main">
-        <div class="e-note">${e.note ? escapeHtml(e.note) : cat.name}</div>
-        <div class="e-time">${cat.name} · ${e.time}</div>
-      </span>
-      <span class="e-amount">
-        <div class="e-jpy">¥${fmt(e.jpy)}</div>
-        <div class="e-twd">NT$${fmt(twd(e.jpy))}</div>
-      </span>`;
-    li.onclick = () => openSheet(e);
+      <button class="entry-del" aria-label="刪除這筆">刪除</button>
+      <div class="entry">
+        <span class="e-icon">${ICONS[cat.id]}</span>
+        <span class="e-main">
+          <div class="e-note">${e.note ? escapeHtml(e.note) : cat.name}</div>
+          <div class="e-time">${cat.name} · ${e.time}</div>
+        </span>
+        <span class="e-amount">
+          <div class="e-jpy">¥${fmt(e.jpy)}</div>
+          <div class="e-twd">NT$${fmt(twd(e.jpy))}</div>
+        </span>
+      </div>`;
+    const entryEl = li.querySelector('.entry');
+    // 左滑刪除
+    attachSwipe(li, entryEl);
+    li.querySelector('.entry-del').onclick = () => {
+      S.entries = S.entries.filter(x => x.id !== e.id);
+      save(); renderAll();
+    };
+    // 點一下＝編輯（左滑展開中則先收合）
+    entryEl.addEventListener('click', () => {
+      if (li._swiped) { li._swiped = false; return; }
+      if (openedRow) { closeRow(openedRow); return; }
+      openSheet(e);
+    });
     ul.appendChild(li);
   }
+}
+
+/* 左滑手勢：跟著手指位移，滑超過 40px 就展開刪除鈕 */
+const OPEN_X = -80; // 展開時往左推的距離（＝刪除鈕寬度）
+function closeRow(row) {
+  row.querySelector('.entry').style.transform = '';
+  row._open = false;
+  if (openedRow === row) openedRow = null;
+}
+function attachSwipe(row, el) {
+  let sx = 0, sy = 0, dx = 0, mode = null; // mode: null=未判定 'h'=水平滑 'v'=直向捲動
+  el.addEventListener('touchstart', ev => {
+    sx = ev.touches[0].clientX; sy = ev.touches[0].clientY;
+    dx = 0; mode = null;
+    el.style.transition = 'none';
+    if (openedRow && openedRow !== row) closeRow(openedRow); // 一次只開一列
+  }, { passive: true });
+  el.addEventListener('touchmove', ev => {
+    const tx = ev.touches[0].clientX - sx, ty = ev.touches[0].clientY - sy;
+    if (!mode) mode = Math.abs(tx) > Math.abs(ty) + 4 ? 'h' : (Math.abs(ty) > 6 ? 'v' : null);
+    if (mode !== 'h') return;
+    dx = Math.min(0, Math.max(OPEN_X - 16, tx + (row._open ? OPEN_X : 0)));
+    el.style.transform = `translateX(${dx}px)`;
+  }, { passive: true });
+  el.addEventListener('touchend', () => {
+    el.style.transition = '';
+    if (mode !== 'h') return;
+    row._swiped = true; // 避免滑完誤觸「點一下編輯」
+    setTimeout(() => { row._swiped = false; }, 350);
+    if (dx < -40) {
+      el.style.transform = `translateX(${OPEN_X}px)`;
+      row._open = true; openedRow = row;
+    } else {
+      closeRow(row);
+    }
+  });
 }
 const escapeHtml = s => s.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
@@ -303,6 +357,7 @@ function openSheet(entry = null) {
   editingId = entry ? entry.id : null;
   sheetAmount = entry ? String(entry.jpy) : '';
   sheetCat = entry ? entry.cat : 'food';
+  if (entry) setSheetCur('jpy'); // 編輯舊記錄一律回到日圓顯示（存的是日圓）
   $('noteInput').value = entry ? entry.note : '';
   $('btnDelete').hidden = !entry;
   $('btnSave').textContent = entry ? '儲存修改' : '記一筆';
@@ -319,7 +374,22 @@ function closeSheet() {
 function renderSheetAmount() {
   const v = Number(sheetAmount || 0);
   $('amountShow').textContent = fmt(v);
-  $('amountTwd').textContent = `≈ NT$${fmt(twd(v))} · 匯率 ${rate().toFixed(3)}`;
+  if (sheetCur === 'jpy') {
+    $('curSymbol').textContent = '¥';
+    $('amountTwd').textContent = `≈ NT$${fmt(twd(v))} · 匯率 ${rate().toFixed(3)}`;
+  } else {
+    $('curSymbol').textContent = 'NT$';
+    $('amountTwd').textContent = `≈ ¥${fmt(v / rate())} · 匯率 ${rate().toFixed(3)}`;
+  }
+}
+/* 切換輸入幣別（輸入的數字不變，只換單位解讀） */
+function setSheetCur(cur) {
+  sheetCur = cur;
+  document.querySelectorAll('#curToggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.cur === cur);
+    b.setAttribute('aria-checked', b.dataset.cur === cur);
+  });
+  renderSheetAmount();
 }
 function renderCatChips() {
   const box = $('catChips');
@@ -363,9 +433,15 @@ $('keypad').onclick = ev => {
   renderSheetAmount();
 };
 
-// 儲存
+// 幣別切換
+document.querySelectorAll('#curToggle button').forEach(b => {
+  b.onclick = () => setSheetCur(b.dataset.cur);
+});
+
+// 儲存（一律換算成日圓存，台幣顯示都是即時換算）
 $('btnSave').onclick = () => {
-  const jpy = Number(sheetAmount || 0);
+  const v = Number(sheetAmount || 0);
+  const jpy = sheetCur === 'jpy' ? v : Math.round(v / rate());
   if (jpy <= 0) return;
   const note = $('noteInput').value.trim();
   if (editingId) {

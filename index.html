@@ -145,8 +145,13 @@
 <section class="sheet" id="entrySheet" aria-label="輸入消費">
   <div class="sheet-grip" aria-hidden="true"></div>
   <div class="amount-block">
-    <div class="amount-jpy"><span class="yen">¥</span><span id="amountShow">0</span></div>
+    <div class="amount-jpy"><span class="yen" id="curSymbol">¥</span><span id="amountShow">0</span></div>
     <div class="amount-twd" id="amountTwd">≈ NT$0</div>
+  </div>
+  <!-- 幣別切換：輸入日圓或台幣 -->
+  <div class="cur-toggle" id="curToggle" role="radiogroup" aria-label="輸入幣別">
+    <button data-cur="jpy" class="active">¥ 日圓</button>
+    <button data-cur="twd">NT$ 台幣</button>
   </div>
   <!-- 分類選擇（icon 由 app.js 注入） -->
   <div class="cat-chips" id="catChips" role="radiogroup" aria-label="分類"></div>
