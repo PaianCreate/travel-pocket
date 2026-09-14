@@ -5,14 +5,14 @@
 
 :root {
   /* 色彩（可在 console 用 PB.setVar('--accent','#xxx') 即時調） */
-  --bg: #F5F5F3;          /* 頁面底色：米白 */
-  --card: #ECECE9;        /* 色塊卡片：淺灰 */
-  --card-2: #FFFFFF;      /* 清單列：白 */
-  --ink: #17181A;         /* 主文字 */
-  --ink-2: #6E6E69;       /* 次要文字 */
-  --muted: #A3A39D;       /* 淡灰標籤 */
-  --accent: #F6C948;      /* 柔黃點綴 */
-  --line: rgba(0,0,0,.06);/* 分隔線 */
+  --bg: #EFEEE9;          /* 頁面底色：暖淺灰 */
+  --card: #E2E1DA;        /* 色塊卡片：淺灰 */
+  --card-2: #FBFAF7;      /* 清單列：暖白 */
+  --ink: #21251E;         /* 主文字：墨綠近黑 */
+  --ink-2: #62665C;       /* 次要文字 */
+  --muted: #9EA096;       /* 淡灰標籤 */
+  --accent: #C9E86F;      /* 特別色：萊姆綠 */
+  --line: rgba(32,37,30,.08);/* 分隔線 */
   --danger: #C0442E;      /* 刪除紅 */
   /* 圖表分類色（已通過色盲驗證，順序固定不可循環） */
   --c-food: #C7522A; --c-transit: #0E93A6; --c-shop: #B58300;
@@ -22,8 +22,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #101114; --card: #1B1C20; --card-2: #232428;
-    --ink: #F2F2EF; --ink-2: #A9A9A3; --muted: #6F6F69;
+    --bg: #151813; --card: #20241D; --card-2: #292D26;
+    --ink: #EFEFE8; --ink-2: #A6A99E; --muted: #6E7168;
     --line: rgba(255,255,255,.07);
   }
 }
@@ -98,7 +98,7 @@ button { border: 0; background: none; cursor: pointer; }
   background: var(--card); border-radius: 999px;
   padding: 6px 12px; font-size: .8rem; color: var(--ink-2);
 }
-.chip-accent { background: var(--accent); color: #17181A; }
+.chip-accent { background: var(--accent); color: #21251E; }
 
 /* ===== 天數選擇列 ===== */
 .day-chips {
@@ -150,7 +150,7 @@ button { border: 0; background: none; cursor: pointer; }
 .trip-card { flex-wrap: wrap; padding: 18px; }
 .t-name { font-size: 1.05rem; font-weight: 650; letter-spacing: -.01em; flex: 1; display: flex; align-items: center; gap: 8px; }
 .t-badge {
-  font-size: .64rem; font-weight: 600; color: #17181A;
+  font-size: .64rem; font-weight: 600; color: #21251E;
   background: var(--accent); border-radius: 999px; padding: 3px 9px;
 }
 .t-total { text-align: right; }
@@ -224,7 +224,7 @@ button { border: 0; background: none; cursor: pointer; }
 .fab {
   position: fixed; right: 22px; bottom: calc(env(safe-area-inset-bottom) + 88px);
   width: 58px; height: 58px; border-radius: 50%;
-  background: var(--accent); color: #17181A;
+  background: var(--accent); color: #21251E;
   display: grid; place-items: center;
   box-shadow: 0 6px 20px rgba(0,0,0,.12);
   transition: transform .12s;
