@@ -84,6 +84,7 @@ let S = (() => {
   delete d.rate;
   for (const t of d.trips) if (!t.cur) t.cur = 'JPY';
   if (d.cardFee === undefined) d.cardFee = 1.5; // 刷卡手續費 %（台灣多數卡 1.5）
+  if (!Array.isArray(d.recentCurs)) d.recentCurs = []; // 最近用過的輸入幣別
   return d;
 })();
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
@@ -109,6 +110,13 @@ const payRate = pay => (pay === 'card' ? cardRate() : cashRate());
 // 一筆記錄換算台幣：依付款方式用不同匯率
 const entryTwd = e => e.jpy * payRate(e.pay);
 const sumTwd = list => Math.round(list.reduce((s, e) => s + entryTwd(e), 0));
+
+/* ---------- 輸入幣別（可以是台幣或任何貨幣）的小工具 ---------- */
+const symOf = code => code === 'TWD' ? 'NT$' : curOf(code).sym;
+const nameOf = code => code === 'TWD' ? '台幣' : curOf(code).name;
+const decOf = code => code === 'TWD' ? false : curOf(code).dec;
+// 第三方幣別 → 旅程主貨幣（走市場牌價交叉換算）
+const toMain = (v, code) => v * rateFor(code) / rateFor(T().cur);
 
 async function fetchRate(force = false, code = null) {
   code = code || T().cur;
@@ -170,7 +178,7 @@ let selectedDate = todayStr();
 let editingId = null;
 let sheetAmount = '';
 let sheetCat = 'food';
-let sheetCur = 'jpy';   // 輸入幣別
+let sheetCur = 'JPY';   // 輸入幣別（'TWD' 或任一貨幣代碼，預設＝旅程主貨幣）
 let sheetPay = 'cash';  // 付款方式
 let openedRow = null;
 let donutFocus = null;
@@ -326,7 +334,7 @@ function renderHome() {
         <span class="e-icon">${ICONS[cat.id]}</span>
         <span class="e-main">
           <div class="e-note">${e.note ? escapeHtml(e.note) : cat.name}</div>
-          <div class="e-time">${cat.name} · ${e.time}${e.pay === 'card' ? ' · 刷卡' : ''}</div>
+          <div class="e-time">${cat.name} · ${e.time}${e.pay === 'card' ? ' · 刷卡' : ''}${e.oc ? ` · 原 ${symOf(e.oc)}${Number(e.oa).toLocaleString('en-US', { maximumFractionDigits: 2 })}` : ''}</div>
         </span>
         <span class="e-amount">
           <div class="e-jpy">${CUR().sym}${fmtLoc(e.jpy)}</div>
@@ -542,16 +550,12 @@ function openSheet(entry = null) {
   sheetAmount = entry ? String(entry.jpy) : '';
   sheetCat = entry ? entry.cat : 'food';
   sheetPay = entry ? (entry.pay || 'cash') : 'cash';
-  if (entry) setSheetCur('jpy'); // 編輯舊記錄一律回到當地貨幣顯示（存的是當地金額）
+  sheetCur = T().cur; // 每次打開回到旅程主貨幣（編輯時存的就是主貨幣金額）
   $('noteInput').value = entry ? entry.note : '';
   $('btnDelete').hidden = !entry;
   $('btnSave').textContent = entry ? '儲存修改' : '記一筆';
-  // 幣別切換鈕跟著旅程貨幣走
-  document.querySelector('#curToggle [data-cur="jpy"]').textContent = `${CUR().sym} ${CUR().name}`;
-  // 有小數的貨幣，「00」鍵變成小數點
-  const dotKey = $('keypad').querySelector('[data-k="00"], [data-k="."]');
-  dotKey.dataset.k = CUR().dec ? '.' : '00';
-  dotKey.textContent = CUR().dec ? '.' : '00';
+  renderCurBtn();
+  updateDotKey();
   renderSheetAmount();
   renderCatChips();
   renderPayToggle();
@@ -580,8 +584,9 @@ function renderQuickChips(editing) {
     b.innerHTML = `${escapeHtml(e.note || cat.name)} <b>${CUR().sym}${fmtLoc(e.jpy)}</b>`;
     b.onclick = () => {
       sheetAmount = String(e.jpy); sheetCat = e.cat; sheetPay = e.pay || 'cash';
+      sheetCur = T().cur; // 快速帶入的金額是主貨幣
       $('noteInput').value = e.note || '';
-      renderSheetAmount(); renderCatChips(); renderPayToggle();
+      renderCurBtn(); updateDotKey(); renderSheetAmount(); renderCatChips(); renderPayToggle();
     };
     box.appendChild(b);
   }
@@ -590,6 +595,7 @@ function closeSheets() {
   $('sheetMask').classList.remove('show');
   $('entrySheet').classList.remove('show');
   $('tripSheet').classList.remove('show');
+  $('curSheet').classList.remove('show');
   $('noteInput').blur();
 }
 function renderSheetAmount() {
@@ -597,24 +603,58 @@ function renderSheetAmount() {
   // 顯示輸入中的數字：整數部分加千分位，小數照打的保留（讓「12.」的點看得到）
   const [int, dec] = (sheetAmount || '0').split('.');
   $('amountShow').textContent = fmt(Number(int)) + (dec !== undefined ? '.' + dec : '');
+  $('curSymbol').textContent = symOf(sheetCur);
   const r = payRate(sheetPay); // 現金／刷卡各用各的匯率
-  const rd = r >= 1 ? 2 : 4;   // 大額貨幣（美元等）匯率顯示 2 位就夠
+  const rd = r >= 1 ? 2 : 4;
   const tag = sheetPay === 'card' ? '刷卡匯率' : '匯率';
-  if (sheetCur === 'jpy') {
-    $('curSymbol').textContent = CUR().sym;
+  if (sheetCur === T().cur) {
+    // 主貨幣輸入 → 顯示台幣
     $('amountTwd').textContent = `≈ NT$${fmt(v * r)} · ${tag} ${r.toFixed(rd)}`;
-  } else {
-    $('curSymbol').textContent = 'NT$';
+  } else if (sheetCur === 'TWD') {
+    // 台幣輸入 → 顯示主貨幣
     $('amountTwd').textContent = `≈ ${CUR().sym}${fmtLoc(v / r)} · ${tag} ${r.toFixed(rd)}`;
+  } else {
+    // 第三方幣別輸入 → 同時顯示主貨幣與台幣
+    const mv = toMain(v, sheetCur);
+    $('amountTwd').textContent = `≈ ${CUR().sym}${fmtLoc(mv)} · NT$${fmt(mv * r)}`;
   }
 }
-function setSheetCur(cur) {
-  sheetCur = cur;
-  document.querySelectorAll('#curToggle button').forEach(b => {
-    b.classList.toggle('active', b.dataset.cur === cur);
-    b.setAttribute('aria-checked', b.dataset.cur === cur);
-  });
-  renderSheetAmount();
+/* 幣別按鈕與選擇面板 */
+function renderCurBtn() {
+  $('curBtn').innerHTML = `${symOf(sheetCur)} ${nameOf(sheetCur)} <span class="caret">▼</span>`;
+}
+function updateDotKey() {
+  // 有小數的幣別，「00」鍵變成小數點
+  const dotKey = $('keypad').querySelector('[data-k="00"], [data-k="."]');
+  dotKey.dataset.k = decOf(sheetCur) ? '.' : '00';
+  dotKey.textContent = decOf(sheetCur) ? '.' : '00';
+}
+function setSheetCur(code) {
+  sheetCur = code;
+  // 換幣別時把已輸入的小數修掉（避免整數幣別殘留小數）
+  if (!decOf(code) && sheetAmount.includes('.')) sheetAmount = sheetAmount.split('.')[0];
+  if (code !== T().cur && code !== 'TWD') {
+    fetchRate(false, code); // 補抓這個幣別的牌價
+    S.recentCurs = [code, ...S.recentCurs.filter(c => c !== code)].slice(0, 4);
+    save();
+  }
+  renderCurBtn(); updateDotKey(); renderSheetAmount();
+}
+function openCurSheet() {
+  const grid = $('curGrid');
+  grid.innerHTML = '';
+  // 順序：旅程主貨幣 → 台幣 → 最近用過 → 其他
+  const codes = [T().cur, 'TWD',
+    ...S.recentCurs.filter(c => c !== T().cur && c !== 'TWD'),
+    ...CURS.map(c => c.code).filter(c => c !== T().cur && c !== 'TWD' && !S.recentCurs.includes(c))];
+  for (const code of codes) {
+    const b = document.createElement('button');
+    b.className = code === sheetCur ? 'active' : '';
+    b.innerHTML = `<b>${symOf(code)}</b>${nameOf(code)}${code === T().cur ? '<span class="cur-tag">主要</span>' : ''}`;
+    b.onclick = () => { setSheetCur(code); $('curSheet').classList.remove('show'); };
+    grid.appendChild(b);
+  }
+  $('curSheet').classList.add('show');
 }
 function renderPayToggle() {
   document.querySelectorAll('#payToggle button').forEach(b => {
@@ -678,8 +718,8 @@ $('keypad').onclick = ev => {
   if (!k) return;
   if (k === 'del') sheetAmount = sheetAmount.slice(0, -1);
   else if (k === '.') {
-    // 小數點：台幣輸入不用小數；一個金額只能有一個點；最多兩位小數由後面的規則擋
-    if (sheetCur !== 'jpy' || sheetAmount.includes('.')) return;
+    // 小數點：只有「有小數的幣別」能用；一個金額只能有一個點
+    if (!decOf(sheetCur) || sheetAmount.includes('.')) return;
     sheetAmount = (sheetAmount === '' ? '0' : sheetAmount) + '.';
   } else if (sheetAmount.length < 9) {
     if (sheetAmount === '' && (k === '0' || k === '00')) return;
@@ -691,30 +731,36 @@ $('keypad').onclick = ev => {
 };
 
 // 幣別／付款方式切換
-document.querySelectorAll('#curToggle button').forEach(b => {
-  b.onclick = () => setSheetCur(b.dataset.cur);
-});
+$('curBtn').onclick = openCurSheet;
 document.querySelectorAll('#payToggle button').forEach(b => {
   b.onclick = () => { sheetPay = b.dataset.pay; renderPayToggle(); renderSheetAmount(); };
 });
 
-// 儲存（一律換算成當地貨幣存；有小數的貨幣保留 2 位）
+// 儲存（一律換算成旅程主貨幣存；非主貨幣輸入時保留原始金額 oc/oa）
 $('btnSave').onclick = () => {
   const v = Number(sheetAmount || 0);
-  const raw = sheetCur === 'jpy' ? v : v / payRate(sheetPay);
+  let raw;
+  if (sheetCur === T().cur) raw = v;                       // 主貨幣：直接存
+  else if (sheetCur === 'TWD') raw = v / payRate(sheetPay); // 台幣：依付款方式換算
+  else raw = toMain(v, sheetCur);                           // 其他幣別：市場牌價交叉換算
   const jpy = CUR().dec ? Math.round(raw * 100) / 100 : Math.round(raw);
   if (jpy <= 0) return;
   const note = $('noteInput').value.trim();
+  const orig = sheetCur !== T().cur ? { oc: sheetCur, oa: v } : {};
   if (editingId) {
     const e = E().find(x => x.id === editingId);
-    if (e) { e.jpy = jpy; e.cat = sheetCat; e.note = note; e.pay = sheetPay; }
+    if (e) {
+      e.jpy = jpy; e.cat = sheetCat; e.note = note; e.pay = sheetPay;
+      delete e.oc; delete e.oa;               // 編輯後以主貨幣為準
+      Object.assign(e, orig);
+    }
   } else {
     const now = new Date();
     E().push({
       id: uid(),
       date: selectedDate,
       time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-      jpy, cat: sheetCat, note, pay: sheetPay
+      jpy, cat: sheetCat, note, pay: sheetPay, ...orig
     });
   }
   save(); closeSheets(); renderAll();

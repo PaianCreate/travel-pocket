@@ -200,12 +200,9 @@
   </div>
   <!-- 最近記過的項目，一鍵帶入 -->
   <div class="quick-chips" id="quickChips"></div>
-  <!-- 幣別切換 + 付款方式 -->
+  <!-- 幣別選擇（單一按鈕，點開選全部幣別） + 付款方式 -->
   <div class="toggle-row">
-    <div class="cur-toggle" id="curToggle" role="radiogroup" aria-label="輸入幣別">
-      <button data-cur="jpy" class="active">¥ 日圓</button>
-      <button data-cur="twd">NT$ 台幣</button>
-    </div>
+    <button class="cur-btn" id="curBtn" aria-label="選擇輸入幣別"></button>
     <div class="cur-toggle" id="payToggle" role="radiogroup" aria-label="付款方式">
       <button data-pay="cash" class="active">現金</button>
       <button data-pay="card">刷卡</button>
@@ -256,6 +253,14 @@
   <div class="sheet-actions">
     <button class="btn-save" id="btnCreateTrip">建立旅程</button>
   </div>
+</section>
+
+<!-- ===== 幣別選擇面板 ===== -->
+<section class="sheet cur-sheet" id="curSheet" aria-label="選擇輸入幣別">
+  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="sheet-title">用什麼幣別輸入？</div>
+  <p class="cur-hint muted small">會自動換算成旅程主貨幣記錄，原始金額也會保留</p>
+  <div class="cur-grid" id="curGrid"></div>
 </section>
 
 <script src="app.js"></script>
