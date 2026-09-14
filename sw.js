@@ -1,5 +1,5 @@
 /* Service Worker — 預先快取全部檔案，斷網照樣能開 */
-const VER = 'pb-v7';
+const VER = 'pb-v8';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'

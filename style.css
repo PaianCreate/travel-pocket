@@ -4,6 +4,7 @@
    ============================================ */
 
 :root {
+  color-scheme: light; /* 日期選單等原生元件也固定淺色 */
   /* 色彩（可在 console 用 PB.setVar('--accent','#xxx') 即時調） */
   --bg: #EFEEE9;          /* 頁面底色：暖淺灰 */
   --card: #E2E1DA;        /* 色塊卡片：淺灰 */
@@ -20,13 +21,7 @@
   --radius: 22px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #151813; --card: #20241D; --card-2: #292D26;
-    --ink: #EFEFE8; --ink-2: #A6A99E; --muted: #6E7168;
-    --line: rgba(255,255,255,.07);
-  }
-}
+/* 固定淺色版：不跟隨系統深色模式（Paian 指定淺灰色系為主） */
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { font-size: 16px; }
