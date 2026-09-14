@@ -66,6 +66,28 @@ button { border: 0; background: none; cursor: pointer; }
 .page-head .dot { color: var(--accent); }
 .subtitle { color: var(--muted); font-size: .95rem; margin-top: 4px; font-weight: 400; }
 
+/* ===== 提醒橫幅 ===== */
+.banner {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border-left: 3px solid var(--accent);
+  border-radius: 14px; padding: 12px 14px; margin-bottom: 18px;
+  font-size: .85rem; color: var(--ink-2);
+}
+.banner-text { flex: 1; line-height: 1.5; }
+.banner .btn-small { background: var(--ink); color: var(--bg); flex: 0 0 auto; }
+.banner-x { color: var(--muted); font-size: 1.05rem; padding: 4px 6px; flex: 0 0 auto; }
+
+/* ===== 快速重複 chips ===== */
+.quick-chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-bottom: 12px; }
+.quick-chips:empty { display: none; }
+.quick-chips::-webkit-scrollbar { display: none; }
+.quick-chip {
+  flex: 0 0 auto; background: var(--card); border-radius: 999px;
+  padding: 8px 14px; font-size: .8rem; color: var(--ink-2);
+  display: flex; gap: 6px; align-items: center;
+}
+.quick-chip b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
 /* ===== 大數字 hero ===== */
 .hero { margin-bottom: 26px; }
 .hero-label { font-size: .8rem; color: var(--muted); letter-spacing: .04em; margin-bottom: 6px; }

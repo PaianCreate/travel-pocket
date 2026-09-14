@@ -27,6 +27,9 @@
     <button class="head-btn" id="btnTrips" aria-label="切換旅程"><span class="tab-icon" data-icon="trip"></span></button>
   </header>
 
+  <!-- 提醒橫幅（補記／備份），由 app.js 控制 -->
+  <div id="homeBanner" hidden></div>
+
   <!-- 當日大數字 -->
   <section class="hero">
     <div class="hero-label" id="heroDayLabel">今日支出</div>
@@ -145,6 +148,14 @@
       <span>手動匯率<br><span class="muted small">留空＝使用自動</span></span>
       <input type="text" inputmode="decimal" id="manualRateInput" placeholder="例：0.21">
     </label>
+    <div class="setting-row">
+      <span>刷卡匯率<br><span class="muted small">牌價＋手續費</span></span>
+      <span class="num" id="cardRateShow">—</span>
+    </div>
+    <label class="setting-row">
+      <span>刷卡手續費 %<br><span class="muted small">台灣的卡多為 1.5%</span></span>
+      <input type="text" inputmode="decimal" id="cardFeeInput" placeholder="1.5">
+    </label>
   </section>
 
   <section class="card">
@@ -152,6 +163,11 @@
     <div class="setting-row">
       <span>共 <span id="entryCount">0</span> 筆記錄</span>
       <button class="btn-small" id="btnExport">匯出 JSON</button>
+    </div>
+    <div class="setting-row">
+      <span class="muted small">從備份檔還原<br>會覆蓋目前資料</span>
+      <button class="btn-small" id="btnImport">匯入 JSON</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
     </div>
     <div class="setting-row">
       <span class="muted small">刪除目前旅程的所有記錄<br>無法復原</span>
@@ -182,6 +198,8 @@
     <div class="amount-jpy"><span class="yen" id="curSymbol">¥</span><span id="amountShow">0</span></div>
     <div class="amount-twd" id="amountTwd">≈ NT$0</div>
   </div>
+  <!-- 最近記過的項目，一鍵帶入 -->
+  <div class="quick-chips" id="quickChips"></div>
   <!-- 幣別切換 + 付款方式 -->
   <div class="toggle-row">
     <div class="cur-toggle" id="curToggle" role="radiogroup" aria-label="輸入幣別">

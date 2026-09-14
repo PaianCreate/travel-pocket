@@ -83,6 +83,7 @@ let S = (() => {
   if (!d.rates) d.rates = { JPY: d.rate || { auto: null, ts: 0, manual: null } };
   delete d.rate;
   for (const t of d.trips) if (!t.cur) t.cur = 'JPY';
+  if (d.cardFee === undefined) d.cardFee = 1.5; // 刷卡手續費 %（台灣多數卡 1.5）
   return d;
 })();
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
@@ -94,13 +95,20 @@ const CUR = () => curOf(T().cur);            // 目前旅程的貨幣
 const R = code => (S.rates[code] ||= { auto: null, ts: 0, manual: null }); // 該貨幣的匯率紀錄
 
 /* ---------- 匯率 ----------
-   優先序：本旅程實際換匯匯率 > 該貨幣手動設定 > 自動抓取 > 保底值 */
+   現金：本旅程實際換匯匯率 > 該貨幣手動設定 > 自動抓取 > 保底值
+   刷卡：牌價（手動 > 自動 > 保底）×（1 + 手續費%），不吃換匯匯率 */
 const tripRate = () => (T().exTwd && T().exJpy) ? T().exTwd / T().exJpy : null;
 const rateFor = code => {
   const r = R(code);
   return r.manual || r.auto || curOf(code).fb;
 };
-const rate = () => tripRate() || rateFor(T().cur);
+const cashRate = () => tripRate() || rateFor(T().cur);
+const cardRate = () => rateFor(T().cur) * (1 + (S.cardFee || 0) / 100);
+const rate = () => cashRate(); // 一般顯示用現金匯率
+const payRate = pay => (pay === 'card' ? cardRate() : cashRate());
+// 一筆記錄換算台幣：依付款方式用不同匯率
+const entryTwd = e => e.jpy * payRate(e.pay);
+const sumTwd = list => Math.round(list.reduce((s, e) => s + entryTwd(e), 0));
 
 async function fetchRate(force = false, code = null) {
   code = code || T().cur;
@@ -184,7 +192,10 @@ function renderTrips() {
   for (const t of S.trips) {
     const cs = curOf(t.cur); // 這個旅程自己的貨幣
     const total = sumJpy(t.entries);
-    const r = (t.exTwd && t.exJpy) ? t.exTwd / t.exJpy : rateFor(t.cur);
+    // 這個旅程的台幣總額：現金用換匯匯率、刷卡用牌價＋手續費
+    const cashR = (t.exTwd && t.exJpy) ? t.exTwd / t.exJpy : rateFor(t.cur);
+    const cardR = rateFor(t.cur) * (1 + (S.cardFee || 0) / 100);
+    const twdTotal = Math.round(t.entries.reduce((s, e) => s + e.jpy * (e.pay === 'card' ? cardR : cashR), 0));
     const range = t.end ? `${shortDate(t.start)} – ${shortDate(t.end)}` : `${shortDate(t.start)} 出發`;
     const days = t.end
       ? Math.round((new Date(t.end + 'T00:00:00') - new Date(t.start + 'T00:00:00')) / 864e5) + 1
@@ -198,7 +209,7 @@ function renderTrips() {
         <span class="t-name">${escapeHtml(t.name)}${t.id === S.active ? '<span class="t-badge">使用中</span>' : ''}</span>
         <span class="t-total">
           <div class="t-jpy">${cs.sym}${fmt(total)}</div>
-          <div class="e-twd">NT$${fmt(Math.round(total * r))}</div>
+          <div class="e-twd">NT$${fmt(twdTotal)}</div>
         </span>
         <div class="t-meta">${cs.name}${days ? ` · ${days} 天` : ''} · ${range} · ${t.entries.length} 筆${cashLeft !== null ? ` · 現金剩 ${cs.sym}${fmt(cashLeft)}` : ''}</div>
       </div>`;
@@ -223,9 +234,46 @@ function renderTrips() {
   }
 }
 
+/* ---------- 提醒橫幅：旅程結束提醒備份 > 昨天沒記提醒補記 ---------- */
+function renderBanner() {
+  const box = $('homeBanner');
+  const today = todayStr();
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  const yest = todayStr(y);
+
+  // 旅程已結束且有記錄 → 提醒匯出備份（每個旅程提醒一次）
+  if (T().end && today > T().end && E().length && !T().bakReminded) {
+    box.hidden = false;
+    box.innerHTML = `<div class="banner">
+      <span class="banner-text">旅程結束了，建議匯出一份備份留存（資料只在這支手機上）</span>
+      <button class="btn-small" id="bnExport">匯出</button>
+      <button class="banner-x" id="bnClose" aria-label="關閉">✕</button></div>`;
+    $('bnExport').onclick = () => { $('btnExport').click(); T().bakReminded = true; save(); renderHome(); };
+    $('bnClose').onclick = () => { T().bakReminded = true; save(); renderHome(); };
+    return;
+  }
+  // 昨天在旅程範圍內卻一筆都沒記 → 提醒補記（一天只問一次）
+  const inRange = yest >= T().start && (!T().end || yest <= T().end);
+  if (inRange && E().length && !entriesOf(yest).length && S.askedBackfill !== today) {
+    box.hidden = false;
+    box.innerHTML = `<div class="banner">
+      <span class="banner-text">昨天（${shortDate(yest)}）沒有任何記錄，要補記嗎？</span>
+      <button class="btn-small" id="bnFill">補記</button>
+      <button class="banner-x" id="bnClose" aria-label="關閉">✕</button></div>`;
+    $('bnFill').onclick = () => {
+      S.askedBackfill = today; save();
+      selectedDate = yest; renderHome(); openSheet();
+    };
+    $('bnClose').onclick = () => { S.askedBackfill = today; save(); renderHome(); };
+    return;
+  }
+  box.hidden = true; box.innerHTML = '';
+}
+
 /* ---------- 主頁 ---------- */
 function renderHome() {
   clampSelected();
+  renderBanner();
   const isToday = selectedDate === todayStr();
   const dayN = dayOfDate(selectedDate);
   const n = tripDayCount();
@@ -236,7 +284,7 @@ function renderHome() {
   $('heroDayLabel').textContent = isToday ? '今日支出' : `Day ${dayN} 支出`;
   $('heroYen').textContent = CUR().sym;
   $('heroJpy').textContent = fmtLoc(total);
-  $('heroTwdChip').textContent = `≈ NT$${fmt(twd(total))}`;
+  $('heroTwdChip').textContent = `≈ NT$${fmt(sumTwd(list))}`;
   $('heroCountChip').textContent = `${list.length} 筆`;
 
   // 現金餘額（有填換匯才顯示）
@@ -282,7 +330,7 @@ function renderHome() {
         </span>
         <span class="e-amount">
           <div class="e-jpy">${CUR().sym}${fmtLoc(e.jpy)}</div>
-          <div class="e-twd">NT$${fmt(twd(e.jpy))}</div>
+          <div class="e-twd">NT$${fmt(entryTwd(e))}</div>
         </span>
       </div>`;
     const entryEl = li.querySelector('.entry');
@@ -343,7 +391,7 @@ function renderStats() {
   const n = tripDayCount();
   $('totalYen').textContent = CUR().sym;
   $('totalJpy').textContent = fmtLoc(total);
-  $('totalTwdChip').textContent = `≈ NT$${fmt(twd(total))}`;
+  $('totalTwdChip').textContent = `≈ NT$${fmt(sumTwd(E()))}`;
   $('totalDaysChip').textContent = `${n} 天`;
   $('avgDayChip').textContent = `日均 ${CUR().sym}${fmtLoc(n ? total / n : 0)}`;
   $('statsSubtitle').textContent = `${T().name} · ${prettyDate(T().start)} 出發 · 共 ${E().length} 筆`;
@@ -438,7 +486,7 @@ function renderBars(n) {
       p.setAttribute('class', 'bar-rect');
       p.onclick = () => {
         barFocus = barFocus === s.day ? null : s.day;
-        $('barsTip').textContent = barFocus ? `Day ${s.day} · ${shortDate(s.ds)} · ${CUR().sym}${fmtLoc(s.v)}（NT$${fmt(twd(s.v))}）` : '';
+        $('barsTip').textContent = barFocus ? `Day ${s.day} · ${shortDate(s.ds)} · ${CUR().sym}${fmtLoc(s.v)}（NT$${fmt(sumTwd(entriesOf(s.ds)))}）` : '';
         renderBars(n);
       };
       svg.appendChild(p);
@@ -482,6 +530,9 @@ function renderSettings() {
         ? `更新於 ${new Date(r.ts).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
         : '尚未取得（連網後自動抓）');
   $('manualRateInput').value = r.manual || '';
+  const cr = cardRate();
+  $('cardRateShow').textContent = cr.toFixed(cr >= 1 ? 2 : 4);
+  $('cardFeeInput').value = S.cardFee;
   $('entryCount').textContent = E().length;
 }
 
@@ -504,8 +555,36 @@ function openSheet(entry = null) {
   renderSheetAmount();
   renderCatChips();
   renderPayToggle();
+  renderQuickChips(entry);
   $('sheetMask').classList.add('show');
   $('entrySheet').classList.add('show');
+}
+/* 最近記過的項目：一鍵帶入金額＋分類＋備註（編輯模式不顯示） */
+function renderQuickChips(editing) {
+  const box = $('quickChips');
+  box.innerHTML = '';
+  if (editing) return;
+  const seen = new Set(), picks = [];
+  // 從最新往回找，同樣的「分類＋備註＋金額」只留一個，取 3 筆
+  const sorted = E().slice().sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
+  for (const e of sorted) {
+    const key = `${e.cat}|${e.note}|${e.jpy}`;
+    if (seen.has(key)) continue;
+    seen.add(key); picks.push(e);
+    if (picks.length >= 3) break;
+  }
+  for (const e of picks) {
+    const cat = CATS.find(c => c.id === e.cat) || CATS[5];
+    const b = document.createElement('button');
+    b.className = 'quick-chip';
+    b.innerHTML = `${escapeHtml(e.note || cat.name)} <b>${CUR().sym}${fmtLoc(e.jpy)}</b>`;
+    b.onclick = () => {
+      sheetAmount = String(e.jpy); sheetCat = e.cat; sheetPay = e.pay || 'cash';
+      $('noteInput').value = e.note || '';
+      renderSheetAmount(); renderCatChips(); renderPayToggle();
+    };
+    box.appendChild(b);
+  }
 }
 function closeSheets() {
   $('sheetMask').classList.remove('show');
@@ -518,13 +597,15 @@ function renderSheetAmount() {
   // 顯示輸入中的數字：整數部分加千分位，小數照打的保留（讓「12.」的點看得到）
   const [int, dec] = (sheetAmount || '0').split('.');
   $('amountShow').textContent = fmt(Number(int)) + (dec !== undefined ? '.' + dec : '');
-  const rd = rate() >= 1 ? 2 : 4; // 大額貨幣（美元等）匯率顯示 2 位就夠
+  const r = payRate(sheetPay); // 現金／刷卡各用各的匯率
+  const rd = r >= 1 ? 2 : 4;   // 大額貨幣（美元等）匯率顯示 2 位就夠
+  const tag = sheetPay === 'card' ? '刷卡匯率' : '匯率';
   if (sheetCur === 'jpy') {
     $('curSymbol').textContent = CUR().sym;
-    $('amountTwd').textContent = `≈ NT$${fmt(twd(v))} · 匯率 ${rate().toFixed(rd)}`;
+    $('amountTwd').textContent = `≈ NT$${fmt(v * r)} · ${tag} ${r.toFixed(rd)}`;
   } else {
     $('curSymbol').textContent = 'NT$';
-    $('amountTwd').textContent = `≈ ${CUR().sym}${fmtLoc(v / rate())} · 匯率 ${rate().toFixed(rd)}`;
+    $('amountTwd').textContent = `≈ ${CUR().sym}${fmtLoc(v / r)} · ${tag} ${r.toFixed(rd)}`;
   }
 }
 function setSheetCur(cur) {
@@ -614,13 +695,13 @@ document.querySelectorAll('#curToggle button').forEach(b => {
   b.onclick = () => setSheetCur(b.dataset.cur);
 });
 document.querySelectorAll('#payToggle button').forEach(b => {
-  b.onclick = () => { sheetPay = b.dataset.pay; renderPayToggle(); };
+  b.onclick = () => { sheetPay = b.dataset.pay; renderPayToggle(); renderSheetAmount(); };
 });
 
 // 儲存（一律換算成當地貨幣存；有小數的貨幣保留 2 位）
 $('btnSave').onclick = () => {
   const v = Number(sheetAmount || 0);
-  const raw = sheetCur === 'jpy' ? v : v / rate();
+  const raw = sheetCur === 'jpy' ? v : v / payRate(sheetPay);
   const jpy = CUR().dec ? Math.round(raw * 100) / 100 : Math.round(raw);
   if (jpy <= 0) return;
   const note = $('noteInput').value.trim();
@@ -688,6 +769,13 @@ $('manualRateInput').onchange = ev => {
   save(); renderAll();
 };
 $('btnRefreshRate').onclick = () => fetchRate(true);
+// 刷卡手續費
+$('cardFeeInput').onchange = ev => {
+  const v = parseFloat(ev.target.value);
+  S.cardFee = (v >= 0 && v <= 20) ? v : 1.5;
+  ev.target.value = S.cardFee;
+  save(); renderAll();
+};
 
 // 匯出 JSON（全部旅程）
 $('btnExport').onclick = () => {
@@ -697,6 +785,38 @@ $('btnExport').onclick = () => {
   a.download = `pocket-bill-${todayStr()}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
+};
+// 匯入 JSON（從備份檔還原，會覆蓋目前資料）
+$('btnImport').onclick = () => $('importFile').click();
+$('importFile').onchange = async ev => {
+  const file = ev.target.files[0];
+  ev.target.value = ''; // 讓同一個檔可以重選
+  if (!file) return;
+  let j = null;
+  try { j = JSON.parse(await file.text()); } catch { alert('這個檔案不是有效的備份檔'); return; }
+  // 支援新格式（trips）與最早的單旅程格式（entries）
+  if (!j || (!Array.isArray(j.trips) && !Array.isArray(j.entries))) {
+    alert('這個檔案不是 Pocket Bill 的備份檔'); return;
+  }
+  if (Array.isArray(j.entries)) { // 最早格式 → 包成一個旅程
+    const t = newTrip('日本旅遊', j.tripStart);
+    t.entries = j.entries.map(e => ({ ...e, pay: e.pay || 'cash' }));
+    j = { trips: [t], active: t.id, rates: { JPY: j.rate || { auto: null, ts: 0, manual: null } } };
+  }
+  // 補齊預設值，防備份來自舊版
+  for (const t of j.trips) { if (!t.cur) t.cur = 'JPY'; for (const e of t.entries || []) if (!e.pay) e.pay = 'cash'; }
+  if (!j.rates) j.rates = {};
+  if (j.cardFee === undefined) j.cardFee = 1.5;
+  if (!j.trips.find(t => t.id === j.active)) j.active = j.trips[0]?.id;
+  if (!j.trips.length) { alert('備份檔裡沒有任何旅程'); return; }
+  const nowCount = S.trips.reduce((s, t) => s + t.entries.length, 0);
+  const newCount = j.trips.reduce((s, t) => s + t.entries.length, 0);
+  if (!confirm(`匯入 ${j.trips.length} 個旅程、${newCount} 筆記錄？\n目前的 ${S.trips.length} 個旅程、${nowCount} 筆會被覆蓋`)) return;
+  S = j;
+  window.PB.state = S;
+  selectedDate = todayStr();
+  save(); clampSelected(); renderAll();
+  alert('匯入完成');
 };
 // 清除目前旅程的記錄
 $('btnClear').onclick = () => {
@@ -727,5 +847,7 @@ renderAll();
 fetchRate();
 window.addEventListener('online', () => fetchRate());
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+// 向系統申請「永久儲存」：降低 iOS 空間吃緊時自動清掉記帳資料的風險
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
 
 })();
