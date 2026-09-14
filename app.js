@@ -1,21 +1,22 @@
 /* ============================================
-   Pocket Bill — 日本旅遊記帳
+   Pocket Bill — 日本旅遊記帳（多旅程版）
    資料只存 localStorage，斷網可用
+   結構：S.trips[] 每個旅程各自有名稱/日期區間/換匯/記錄
    ============================================ */
 (() => {
 'use strict';
 
 /* ---------- 分類定義（順序固定，圖表顏色不可循環） ---------- */
 const CATS = [
-  { id: 'food',    name: '餐飲', color: 'var(--c-food)',    hex: '#C7522A' },
-  { id: 'transit', name: '交通', color: 'var(--c-transit)', hex: '#0E93A6' },
-  { id: 'shop',    name: '購物', color: 'var(--c-shop)',    hex: '#B58300' },
-  { id: 'stay',    name: '住宿', color: 'var(--c-stay)',    hex: '#7B5EA7' },
-  { id: 'ticket',  name: '門票', color: 'var(--c-ticket)',  hex: '#35854A' },
-  { id: 'other',   name: '其他', color: 'var(--c-other)',   hex: '#2E77BE' },
+  { id: 'food',    name: '餐飲', hex: '#C7522A' },
+  { id: 'transit', name: '交通', hex: '#0E93A6' },
+  { id: 'shop',    name: '購物', hex: '#B58300' },
+  { id: 'stay',    name: '住宿', hex: '#7B5EA7' },
+  { id: 'ticket',  name: '門票', hex: '#35854A' },
+  { id: 'other',   name: '其他', hex: '#2E77BE' },
 ];
 
-/* ---------- 細線條 icon（stroke 1.6，精緻小 icon） ---------- */
+/* ---------- 細線條 icon ---------- */
 const STROKE = 'fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"';
 const ICONS = {
   food:    `<svg viewBox="0 0 24 24" ${STROKE}><path d="M4 3v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V3M7 3v18"/><path d="M20 14V3a4 4 0 0 0-4 4v5a2 2 0 0 0 2 2h2Zm0 0v7"/></svg>`,
@@ -27,6 +28,7 @@ const ICONS = {
   home:    `<svg viewBox="0 0 24 24" ${STROKE}><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>`,
   stats:   `<svg viewBox="0 0 24 24" ${STROKE}><path d="M6 20v-5M12 20V9M18 20V4"/></svg>`,
   settings:`<svg viewBox="0 0 24 24" ${STROKE}><path d="M21 5h-6M9 5H3M21 12h-4M11 12H3M21 19h-9M6 19H3"/><path d="M12 3v4M14 10v4M9 17v4"/></svg>`,
+  trip:    `<svg viewBox="0 0 24 24" ${STROKE}><rect x="4.5" y="7" width="15" height="14" rx="2.5"/><path d="M9.5 7V5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v2M8.5 7v14M15.5 7v14"/></svg>`,
 };
 
 /* ---------- 資料存取 ---------- */
@@ -35,24 +37,41 @@ const todayStr = (d = new Date()) => {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 };
-const load = () => {
-  try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch { return null; }
-};
-let S = load() || {
-  tripStart: todayStr(),                    // 旅程開始日
-  entries: [],                              // { id, date:'YYYY-MM-DD', time:'HH:MM', jpy, cat, note }
-  rate: { auto: null, ts: 0, manual: null } // 匯率：自動值 + 手動覆蓋
-};
-const save = () => localStorage.setItem(KEY, JSON.stringify(S));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const newTrip = (name, start, end, exTwd, exJpy) => ({
+  id: uid(), name: name || '日本旅遊', start: start || todayStr(),
+  end: end || null,        // 回程日（選填）
+  exTwd: exTwd || null,    // 換匯：付了多少台幣
+  exJpy: exJpy || null,    // 換匯：拿到多少日圓
+  entries: []              // { id, date, time, jpy, cat, note, pay:'cash'|'card' }
+});
 
-/* ---------- 匯率 ---------- */
-const FALLBACK_RATE = 0.21; // 完全沒抓到匯率時的保底值
-const rate = () => {
-  if (S.rate.manual) return S.rate.manual;
-  return S.rate.auto || FALLBACK_RATE;
-};
+let S = (() => {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(KEY)); } catch { /* 壞資料就重來 */ }
+  if (!d) {
+    const t = newTrip('日本旅遊');
+    return { trips: [t], active: t.id, rate: { auto: null, ts: 0, manual: null } };
+  }
+  if (d.trips) return d;
+  // 舊版單旅程格式 → 自動搬進第一個旅程，舊記錄付款方式預設現金
+  const t = newTrip('日本旅遊', d.tripStart);
+  t.entries = (d.entries || []).map(e => ({ ...e, pay: e.pay || 'cash' }));
+  return { trips: [t], active: t.id, rate: d.rate || { auto: null, ts: 0, manual: null } };
+})();
+const save = () => localStorage.setItem(KEY, JSON.stringify(S));
+save(); // 立即寫回（讓格式升級生效）
+
+const T = () => S.trips.find(t => t.id === S.active) || S.trips[0]; // 目前旅程
+const E = () => T().entries;
+
+/* ---------- 匯率 ----------
+   優先序：本旅程實際換匯匯率 > 手動設定 > 自動抓取 > 保底值 */
+const FALLBACK_RATE = 0.21;
+const tripRate = () => (T().exTwd && T().exJpy) ? T().exTwd / T().exJpy : null;
+const rate = () => tripRate() || S.rate.manual || S.rate.auto || FALLBACK_RATE;
+
 async function fetchRate(force = false) {
-  // 12 小時內抓過就不重抓（省流量），手動按「重新抓取」則強制
   if (!force && S.rate.auto && Date.now() - S.rate.ts < 12 * 3600e3) return;
   if (!navigator.onLine) return;
   try {
@@ -61,7 +80,7 @@ async function fetchRate(force = false) {
     if (j && j.rates && j.rates.TWD) {
       S.rate.auto = j.rates.TWD;
       S.rate.ts = Date.now();
-      save(); renderSettings(); renderAll();
+      save(); renderAll();
     }
   } catch { /* 離線或失敗就沿用舊值 */ }
 }
@@ -70,13 +89,13 @@ async function fetchRate(force = false) {
 const $ = id => document.getElementById(id);
 const fmt = n => Math.round(n).toLocaleString('en-US');
 const twd = jpy => Math.round(jpy * rate());
-const dateOfDay = n => { // Day n（1 起算）對應的日期字串
-  const d = new Date(S.tripStart + 'T00:00:00');
+const dateOfDay = n => {
+  const d = new Date(T().start + 'T00:00:00');
   d.setDate(d.getDate() + n - 1);
   return todayStr(d);
 };
-const dayOfDate = ds => { // 日期字串 → Day 幾
-  const a = new Date(S.tripStart + 'T00:00:00'), b = new Date(ds + 'T00:00:00');
+const dayOfDate = ds => {
+  const a = new Date(T().start + 'T00:00:00'), b = new Date(ds + 'T00:00:00');
   return Math.round((b - a) / 864e5) + 1;
 };
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
@@ -88,43 +107,110 @@ const shortDate = ds => {
   const d = new Date(ds + 'T00:00:00');
   return `${d.getMonth() + 1}/${d.getDate()}`;
 };
-// 旅程天數：從開始日到「今天或最後一筆」較晚者
+// 旅程天數：有回程日就用日期區間，並延伸涵蓋超出範圍的記錄；沒有就到今天
 function tripDayCount() {
-  let last = dayOfDate(todayStr());
-  for (const e of S.entries) last = Math.max(last, dayOfDate(e.date));
-  return Math.max(1, last);
+  let n = T().end ? dayOfDate(T().end) : dayOfDate(todayStr());
+  for (const e of E()) n = Math.max(n, dayOfDate(e.date));
+  return Math.max(1, n);
 }
-const entriesOf = ds => S.entries.filter(e => e.date === ds).sort((a, b) => (a.time < b.time ? 1 : -1));
+const entriesOf = ds => E().filter(e => e.date === ds).sort((a, b) => (a.time < b.time ? 1 : -1));
 const sumJpy = list => list.reduce((s, e) => s + e.jpy, 0);
+const cashSpent = () => sumJpy(E().filter(e => e.pay !== 'card'));
+const clampSelected = () => {
+  const d = dayOfDate(selectedDate);
+  if (d < 1) selectedDate = T().start;
+  else if (d > tripDayCount()) selectedDate = dateOfDay(tripDayCount());
+};
 
 /* ---------- 全域狀態 ---------- */
-let selectedDate = todayStr();           // 主頁目前看哪一天
-if (dayOfDate(selectedDate) < 1) selectedDate = S.tripStart;
-let editingId = null;                    // 編輯中的記錄 id
-let sheetAmount = '';                    // 輸入面板的金額字串
+let selectedDate = todayStr();
+let editingId = null;
+let sheetAmount = '';
 let sheetCat = 'food';
-let sheetCur = 'jpy';                    // 輸入幣別：'jpy' 或 'twd'
-let openedRow = null;                    // 目前左滑展開的那一列
-let donutFocus = null;                   // 圓環圖目前點選的分類
-let barFocus = null;                     // 長條圖目前點選的天
+let sheetCur = 'jpy';   // 輸入幣別
+let sheetPay = 'cash';  // 付款方式
+let openedRow = null;
+let donutFocus = null;
+let barFocus = null;
+
+/* ---------- 畫面切換 ---------- */
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  $('fabAdd').style.display = id === 'view-home' ? '' : 'none';
+  document.querySelector('.tabbar').style.display = id === 'view-trips' ? 'none' : '';
+  renderAll();
+}
+
+/* ---------- 旅程列表 ---------- */
+function renderTrips() {
+  const ul = $('tripList');
+  ul.innerHTML = '';
+  for (const t of S.trips) {
+    const total = sumJpy(t.entries);
+    const r = (t.exTwd && t.exJpy) ? t.exTwd / t.exJpy : rate();
+    const range = t.end ? `${shortDate(t.start)} – ${shortDate(t.end)}` : `${shortDate(t.start)} 出發`;
+    const days = t.end
+      ? Math.round((new Date(t.end + 'T00:00:00') - new Date(t.start + 'T00:00:00')) / 864e5) + 1
+      : null;
+    const cashLeft = t.exJpy ? t.exJpy - sumJpy(t.entries.filter(e => e.pay !== 'card')) : null;
+    const li = document.createElement('li');
+    li.className = 'entry-row';
+    li.innerHTML = `
+      <button class="entry-del" aria-label="刪除旅程">刪除</button>
+      <div class="entry trip-card">
+        <span class="t-name">${escapeHtml(t.name)}${t.id === S.active ? '<span class="t-badge">使用中</span>' : ''}</span>
+        <span class="t-total">
+          <div class="t-jpy">¥${fmt(total)}</div>
+          <div class="e-twd">NT$${fmt(Math.round(total * r))}</div>
+        </span>
+        <div class="t-meta">${range}${days ? ` · ${days} 天` : ''} · ${t.entries.length} 筆${cashLeft !== null ? ` · 現金剩 ¥${fmt(cashLeft)}` : ''}</div>
+      </div>`;
+    const el = li.querySelector('.entry');
+    attachSwipe(li, el);
+    li.querySelector('.entry-del').onclick = () => {
+      if (!confirm(`刪除「${t.name}」？這個旅程的 ${t.entries.length} 筆記錄會一起刪除，無法復原`)) return;
+      S.trips = S.trips.filter(x => x.id !== t.id);
+      if (!S.trips.length) S.trips = [newTrip('日本旅遊')]; // 永遠保留至少一個旅程
+      if (S.active === t.id) S.active = S.trips[0].id;
+      clampSelected(); save(); renderAll();
+    };
+    el.addEventListener('click', () => {
+      if (li._swiped) { li._swiped = false; return; }
+      if (openedRow) { closeRow(openedRow); return; }
+      S.active = t.id;
+      selectedDate = todayStr(); clampSelected();
+      save(); showView('view-home');
+    });
+    ul.appendChild(li);
+  }
+}
 
 /* ---------- 主頁 ---------- */
 function renderHome() {
+  clampSelected();
   const isToday = selectedDate === todayStr();
   const dayN = dayOfDate(selectedDate);
+  const n = tripDayCount();
   const list = entriesOf(selectedDate);
   const total = sumJpy(list);
 
-  $('homeSubtitle').textContent = `Day ${dayN} · ${prettyDate(selectedDate)}`;
+  $('homeSubtitle').textContent = `${T().name} · Day ${dayN}${T().end ? ` / ${n}` : ''} · ${prettyDate(selectedDate)}`;
   $('heroDayLabel').textContent = isToday ? '今日支出' : `Day ${dayN} 支出`;
   $('heroJpy').textContent = fmt(total);
   $('heroTwdChip').textContent = `≈ NT$${fmt(twd(total))}`;
   $('heroCountChip').textContent = `${list.length} 筆`;
 
+  // 現金餘額（有填換匯才顯示）
+  const cashChip = $('heroCashChip');
+  if (T().exJpy) {
+    cashChip.hidden = false;
+    cashChip.textContent = `現金剩 ¥${fmt(T().exJpy - cashSpent())}`;
+  } else cashChip.hidden = true;
+
   // 天數列
   const chips = $('dayChips');
   chips.innerHTML = '';
-  const n = tripDayCount();
   for (let i = 1; i <= n; i++) {
     const ds = dateOfDay(i);
     const b = document.createElement('button');
@@ -139,11 +225,11 @@ function renderHome() {
   // 清單
   const ul = $('entryList');
   ul.innerHTML = '';
+  openedRow = null;
   if (!list.length) {
     ul.innerHTML = `<li class="empty">這天還沒有記錄<br>按右下角 + 記第一筆</li>`;
     return;
   }
-  openedRow = null;
   for (const e of list) {
     const cat = CATS.find(c => c.id === e.cat) || CATS[5];
     const li = document.createElement('li');
@@ -154,7 +240,7 @@ function renderHome() {
         <span class="e-icon">${ICONS[cat.id]}</span>
         <span class="e-main">
           <div class="e-note">${e.note ? escapeHtml(e.note) : cat.name}</div>
-          <div class="e-time">${cat.name} · ${e.time}</div>
+          <div class="e-time">${cat.name} · ${e.time}${e.pay === 'card' ? ' · 刷卡' : ''}</div>
         </span>
         <span class="e-amount">
           <div class="e-jpy">¥${fmt(e.jpy)}</div>
@@ -162,13 +248,11 @@ function renderHome() {
         </span>
       </div>`;
     const entryEl = li.querySelector('.entry');
-    // 左滑刪除
     attachSwipe(li, entryEl);
     li.querySelector('.entry-del').onclick = () => {
-      S.entries = S.entries.filter(x => x.id !== e.id);
+      T().entries = E().filter(x => x.id !== e.id);
       save(); renderAll();
     };
-    // 點一下＝編輯（左滑展開中則先收合）
     entryEl.addEventListener('click', () => {
       if (li._swiped) { li._swiped = false; return; }
       if (openedRow) { closeRow(openedRow); return; }
@@ -177,21 +261,22 @@ function renderHome() {
     ul.appendChild(li);
   }
 }
+const escapeHtml = s => s.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
 /* 左滑手勢：跟著手指位移，滑超過 40px 就展開刪除鈕 */
-const OPEN_X = -80; // 展開時往左推的距離（＝刪除鈕寬度）
+const OPEN_X = -80;
 function closeRow(row) {
   row.querySelector('.entry').style.transform = '';
   row._open = false;
   if (openedRow === row) openedRow = null;
 }
 function attachSwipe(row, el) {
-  let sx = 0, sy = 0, dx = 0, mode = null; // mode: null=未判定 'h'=水平滑 'v'=直向捲動
+  let sx = 0, sy = 0, dx = 0, mode = null;
   el.addEventListener('touchstart', ev => {
     sx = ev.touches[0].clientX; sy = ev.touches[0].clientY;
     dx = 0; mode = null;
     el.style.transition = 'none';
-    if (openedRow && openedRow !== row) closeRow(openedRow); // 一次只開一列
+    if (openedRow && openedRow !== row) closeRow(openedRow);
   }, { passive: true });
   el.addEventListener('touchmove', ev => {
     const tx = ev.touches[0].clientX - sx, ty = ev.touches[0].clientY - sy;
@@ -203,7 +288,7 @@ function attachSwipe(row, el) {
   el.addEventListener('touchend', () => {
     el.style.transition = '';
     if (mode !== 'h') return;
-    row._swiped = true; // 避免滑完誤觸「點一下編輯」
+    row._swiped = true;
     setTimeout(() => { row._swiped = false; }, 350);
     if (dx < -40) {
       el.style.transform = `translateX(${OPEN_X}px)`;
@@ -213,26 +298,32 @@ function attachSwipe(row, el) {
     }
   });
 }
-const escapeHtml = s => s.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
 /* ---------- 統計 ---------- */
 function renderStats() {
-  const total = sumJpy(S.entries);
+  const total = sumJpy(E());
   const n = tripDayCount();
   $('totalJpy').textContent = fmt(total);
   $('totalTwdChip').textContent = `≈ NT$${fmt(twd(total))}`;
   $('totalDaysChip').textContent = `${n} 天`;
   $('avgDayChip').textContent = `日均 ¥${fmt(n ? total / n : 0)}`;
-  $('statsSubtitle').textContent = `${prettyDate(S.tripStart)} 出發 · 共 ${S.entries.length} 筆`;
+  $('statsSubtitle').textContent = `${T().name} · ${prettyDate(T().start)} 出發 · 共 ${E().length} 筆`;
+
+  // 現金／刷卡各花多少
+  const cash = cashSpent(), card = total - cash;
+  const split = $('paySplitChip');
+  if (card > 0) { split.hidden = false; split.textContent = `現金 ¥${fmt(cash)} · 刷卡 ¥${fmt(card)}`; }
+  else split.hidden = true;
+
   renderDonut(total);
   renderBars(n);
 }
 
-/* 圓環圖：SVG 弧線，段與段之間留 2px 縫 */
+/* 圓環圖 */
 function renderDonut(total) {
   const svg = $('donutSvg');
   svg.innerHTML = '';
-  const data = CATS.map(c => ({ ...c, v: sumJpy(S.entries.filter(e => e.cat === c.id)) })).filter(d => d.v > 0);
+  const data = CATS.map(c => ({ ...c, v: sumJpy(E().filter(e => e.cat === c.id)) })).filter(d => d.v > 0);
   const cx = 100, cy = 100, R = 88, r = 62;
 
   if (!data.length) {
@@ -242,15 +333,14 @@ function renderDonut(total) {
     $('catLegend').innerHTML = '';
     return;
   }
-  const TAU = Math.PI * 2, pad = data.length > 1 ? 0.035 : 0; // 段間縫隙（弧度）
+  const TAU = Math.PI * 2, pad = data.length > 1 ? 0.035 : 0;
   let a = -Math.PI / 2;
   for (const d of data) {
     const span = (d.v / total) * TAU;
     const a0 = a + pad / 2, a1 = a + span - pad / 2;
     a += span;
-    const p = arcPath(cx, cy, R, r, a0, Math.max(a1, a0 + 0.01));
     const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    el.setAttribute('d', p);
+    el.setAttribute('d', arcPath(cx, cy, R, r, a0, Math.max(a1, a0 + 0.01)));
     el.setAttribute('fill', d.hex);
     el.setAttribute('class', 'donut-seg' + (donutFocus && donutFocus !== d.id ? ' dim' : ''));
     el.onclick = () => { donutFocus = donutFocus === d.id ? null : d.id; renderStats(); };
@@ -260,7 +350,6 @@ function renderDonut(total) {
   $('donutCenterName').textContent = f ? f.name : '全部';
   $('donutCenterVal').textContent = `¥${fmt(f ? f.v : total)}`;
 
-  // 圖例＝數據表：色點 + icon + 名稱 + 金額 + 佔比
   const lg = $('catLegend');
   lg.innerHTML = '';
   for (const d of data.slice().sort((x, y) => y.v - x.v)) {
@@ -284,7 +373,7 @@ function arcPath(cx, cy, R, r, a0, a1) {
   return `M${x0} ${y0}A${R} ${R} 0 ${large} 1 ${x1} ${y1}L${x2} ${y2}A${r} ${r} 0 ${large} 0 ${x3} ${y3}Z`;
 }
 
-/* 每日長條圖：單一系列用墨色，點選的那天換黃色點綴 */
+/* 每日長條圖 */
 function renderBars(n) {
   const svg = $('barsSvg');
   const sums = [];
@@ -303,7 +392,6 @@ function renderBars(n) {
     const h = Math.max(s.v / max * (H - top - bottom), s.v > 0 ? 3 : 0);
     const y = H - bottom - h;
     if (s.v > 0) {
-      // 長條：頂端 4px 圓角、底端貼齊基準線
       const p = document.createElementNS(ns, 'path');
       const rr = Math.min(4, h);
       p.setAttribute('d', `M${x} ${H - bottom}V${y + rr}Q${x} ${y} ${x + rr} ${y}H${x + bw - rr}Q${x + bw} ${y} ${x + bw} ${y + rr}V${H - bottom}Z`);
@@ -315,7 +403,6 @@ function renderBars(n) {
         renderBars(n);
       };
       svg.appendChild(p);
-      // 只有最高的那天直接標數字（選擇性直標，不逐點標）
       if (i === maxIdx) {
         const t = document.createElementNS(ns, 'text');
         t.setAttribute('x', x + bw / 2); t.setAttribute('y', y - 7);
@@ -325,7 +412,6 @@ function renderBars(n) {
         svg.appendChild(t);
       }
     }
-    // X 軸標籤
     const t = document.createElementNS(ns, 'text');
     t.setAttribute('x', x + bw / 2); t.setAttribute('y', H - 5);
     t.setAttribute('text-anchor', 'middle');
@@ -333,7 +419,6 @@ function renderBars(n) {
     t.textContent = `D${s.day}`;
     svg.appendChild(t);
   });
-  // 基準線
   const base = document.createElementNS(ns, 'line');
   base.setAttribute('x1', gap / 2); base.setAttribute('x2', W - gap / 2);
   base.setAttribute('y1', H - bottom); base.setAttribute('y2', H - bottom);
@@ -343,13 +428,20 @@ function renderBars(n) {
 
 /* ---------- 設定 ---------- */
 function renderSettings() {
-  $('tripStartInput').value = S.tripStart;
-  $('autoRateShow').textContent = S.rate.auto ? S.rate.auto.toFixed(4) : '—';
-  $('rateUpdatedAt').textContent = S.rate.ts
-    ? `更新於 ${new Date(S.rate.ts).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-    : '尚未取得（連網後自動抓）';
+  $('tripNameInput').value = T().name;
+  $('tripStartInput').value = T().start;
+  $('tripEndInput').value = T().end || '';
+  $('tripExTwdInput').value = T().exTwd || '';
+  $('tripExJpyInput').value = T().exJpy || '';
+  const tr = tripRate();
+  $('autoRateShow').textContent = (tr ? `${tr.toFixed(4)}（本旅程換匯）` : (S.rate.auto ? S.rate.auto.toFixed(4) : '—'));
+  $('rateUpdatedAt').textContent = tr
+    ? '正在使用你的實際換匯匯率'
+    : (S.rate.ts
+        ? `更新於 ${new Date(S.rate.ts).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+        : '尚未取得（連網後自動抓）');
   $('manualRateInput').value = S.rate.manual || '';
-  $('entryCount').textContent = S.entries.length;
+  $('entryCount').textContent = E().length;
 }
 
 /* ---------- 輸入面板 ---------- */
@@ -357,18 +449,21 @@ function openSheet(entry = null) {
   editingId = entry ? entry.id : null;
   sheetAmount = entry ? String(entry.jpy) : '';
   sheetCat = entry ? entry.cat : 'food';
+  sheetPay = entry ? (entry.pay || 'cash') : 'cash';
   if (entry) setSheetCur('jpy'); // 編輯舊記錄一律回到日圓顯示（存的是日圓）
   $('noteInput').value = entry ? entry.note : '';
   $('btnDelete').hidden = !entry;
   $('btnSave').textContent = entry ? '儲存修改' : '記一筆';
   renderSheetAmount();
   renderCatChips();
+  renderPayToggle();
   $('sheetMask').classList.add('show');
   $('entrySheet').classList.add('show');
 }
-function closeSheet() {
+function closeSheets() {
   $('sheetMask').classList.remove('show');
   $('entrySheet').classList.remove('show');
+  $('tripSheet').classList.remove('show');
   $('noteInput').blur();
 }
 function renderSheetAmount() {
@@ -382,7 +477,6 @@ function renderSheetAmount() {
     $('amountTwd').textContent = `≈ ¥${fmt(v / rate())} · 匯率 ${rate().toFixed(3)}`;
   }
 }
-/* 切換輸入幣別（輸入的數字不變，只換單位解讀） */
 function setSheetCur(cur) {
   sheetCur = cur;
   document.querySelectorAll('#curToggle button').forEach(b => {
@@ -390,6 +484,12 @@ function setSheetCur(cur) {
     b.setAttribute('aria-checked', b.dataset.cur === cur);
   });
   renderSheetAmount();
+}
+function renderPayToggle() {
+  document.querySelectorAll('#payToggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.pay === sheetPay);
+    b.setAttribute('aria-checked', b.dataset.pay === sheetPay);
+  });
 }
 function renderCatChips() {
   const box = $('catChips');
@@ -405,21 +505,39 @@ function renderCatChips() {
   }
 }
 
+/* ---------- 新增旅程面板 ---------- */
+function openTripSheet() {
+  $('newTripName').value = '';
+  $('newTripStart').value = todayStr();
+  $('newTripEnd').value = '';
+  $('newTripExTwd').value = '';
+  $('newTripExJpy').value = '';
+  $('sheetMask').classList.add('show');
+  $('tripSheet').classList.add('show');
+}
+
 /* ---------- 事件 ---------- */
-// 分頁切換
 document.querySelectorAll('.tab').forEach(tab => {
-  tab.onclick = () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    tab.classList.add('active');
-    $(tab.dataset.view).classList.add('active');
-    // + 按鈕只在記帳頁顯示，避免擋到統計與設定內容
-    $('fabAdd').style.display = tab.dataset.view === 'view-home' ? '' : 'none';
-    renderAll();
-  };
+  tab.onclick = () => showView(tab.dataset.view);
 });
-// 注入分頁列 icon
 document.querySelectorAll('.tab-icon').forEach(el => { el.innerHTML = ICONS[el.dataset.icon]; });
+$('btnTrips').onclick = () => showView('view-trips');
+$('btnNewTrip').onclick = openTripSheet;
+
+// 建立旅程
+$('btnCreateTrip').onclick = () => {
+  const name = $('newTripName').value.trim() || '日本旅遊';
+  const start = $('newTripStart').value || todayStr();
+  let end = $('newTripEnd').value || null;
+  if (end && end < start) end = null; // 回程比去程早就當沒填
+  const exTwd = parseInt($('newTripExTwd').value, 10) || null;
+  const exJpy = parseInt($('newTripExJpy').value, 10) || null;
+  const t = newTrip(name, start, end, exTwd, exJpy);
+  S.trips.unshift(t);
+  S.active = t.id;
+  selectedDate = todayStr(); clampSelected();
+  save(); closeSheets(); showView('view-home');
+};
 
 // 鍵盤
 $('keypad').onclick = ev => {
@@ -427,57 +545,77 @@ $('keypad').onclick = ev => {
   if (!k) return;
   if (k === 'del') sheetAmount = sheetAmount.slice(0, -1);
   else if (sheetAmount.length < 7) {
-    if (sheetAmount === '' && (k === '0' || k === '00')) return; // 不讓開頭是 0
+    if (sheetAmount === '' && (k === '0' || k === '00')) return;
     sheetAmount += k;
   }
   renderSheetAmount();
 };
 
-// 幣別切換
+// 幣別／付款方式切換
 document.querySelectorAll('#curToggle button').forEach(b => {
   b.onclick = () => setSheetCur(b.dataset.cur);
 });
+document.querySelectorAll('#payToggle button').forEach(b => {
+  b.onclick = () => { sheetPay = b.dataset.pay; renderPayToggle(); };
+});
 
-// 儲存（一律換算成日圓存，台幣顯示都是即時換算）
+// 儲存（一律換算成日圓存）
 $('btnSave').onclick = () => {
   const v = Number(sheetAmount || 0);
   const jpy = sheetCur === 'jpy' ? v : Math.round(v / rate());
   if (jpy <= 0) return;
   const note = $('noteInput').value.trim();
   if (editingId) {
-    const e = S.entries.find(x => x.id === editingId);
-    if (e) { e.jpy = jpy; e.cat = sheetCat; e.note = note; }
+    const e = E().find(x => x.id === editingId);
+    if (e) { e.jpy = jpy; e.cat = sheetCat; e.note = note; e.pay = sheetPay; }
   } else {
     const now = new Date();
-    S.entries.push({
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      date: selectedDate, // 記在目前選的那一天
+    E().push({
+      id: uid(),
+      date: selectedDate,
       time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`,
-      jpy, cat: sheetCat, note
+      jpy, cat: sheetCat, note, pay: sheetPay
     });
   }
-  save(); closeSheet(); renderAll();
+  save(); closeSheets(); renderAll();
 };
 
-// 刪除
+// 刪除（編輯面板內）
 $('btnDelete').onclick = () => {
   if (!editingId) return;
   if (!confirm('刪除這筆記錄？')) return;
-  S.entries = S.entries.filter(e => e.id !== editingId);
-  save(); closeSheet(); renderAll();
+  T().entries = E().filter(e => e.id !== editingId);
+  save(); closeSheets(); renderAll();
 };
 
 $('fabAdd').onclick = () => openSheet();
-$('sheetMask').onclick = closeSheet;
+$('sheetMask').onclick = closeSheets;
 
-// 設定：旅程開始日
-$('tripStartInput').onchange = ev => {
-  if (!ev.target.value) return;
-  S.tripStart = ev.target.value;
-  if (dayOfDate(selectedDate) < 1) selectedDate = S.tripStart;
+// 設定：目前旅程
+$('tripNameInput').onchange = ev => {
+  T().name = ev.target.value.trim() || T().name;
+  ev.target.value = T().name;
   save(); renderAll();
 };
-// 設定：手動匯率
+$('tripStartInput').onchange = ev => {
+  if (!ev.target.value) return;
+  T().start = ev.target.value;
+  clampSelected(); save(); renderAll();
+};
+$('tripEndInput').onchange = ev => {
+  T().end = ev.target.value || null;
+  if (T().end && T().end < T().start) T().end = null;
+  clampSelected(); save(); renderAll();
+};
+$('tripExTwdInput').onchange = ev => {
+  T().exTwd = parseInt(ev.target.value, 10) || null;
+  save(); renderAll();
+};
+$('tripExJpyInput').onchange = ev => {
+  T().exJpy = parseInt(ev.target.value, 10) || null;
+  save(); renderAll();
+};
+// 設定：手動匯率（備援用，本旅程有換匯匯率時優先用換匯）
 $('manualRateInput').onchange = ev => {
   const v = parseFloat(ev.target.value);
   S.rate.manual = (v && v > 0) ? v : null;
@@ -486,7 +624,7 @@ $('manualRateInput').onchange = ev => {
 };
 $('btnRefreshRate').onclick = () => fetchRate(true);
 
-// 匯出 JSON
+// 匯出 JSON（全部旅程）
 $('btnExport').onclick = () => {
   const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -495,27 +633,27 @@ $('btnExport').onclick = () => {
   a.click();
   URL.revokeObjectURL(a.href);
 };
-// 清除全部
+// 清除目前旅程的記錄
 $('btnClear').onclick = () => {
-  if (!confirm('確定要刪除全部記錄？無法復原')) return;
-  if (!confirm('真的確定嗎？')) return;
-  S.entries = [];
+  if (!confirm(`清空「${T().name}」的 ${E().length} 筆記錄？無法復原`)) return;
+  T().entries = [];
   save(); renderAll();
 };
 
 /* ---------- 總渲染 ---------- */
 function renderAll() {
-  renderHome(); renderStats(); renderSettings();
+  renderHome(); renderStats(); renderSettings(); renderTrips();
 }
 
 /* ---------- 對外掛鉤：console 即時調參 ---------- */
 window.PB = {
   state: S,
-  setVar: (k, v) => document.documentElement.style.setProperty(k, v), // 例：PB.setVar('--accent','#F0A')
+  setVar: (k, v) => document.documentElement.style.setProperty(k, v),
   rerender: renderAll,
 };
 
 /* ---------- 啟動 ---------- */
+clampSelected();
 renderAll();
 fetchRate();
 window.addEventListener('online', () => fetchRate());

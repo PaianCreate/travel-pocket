@@ -23,6 +23,8 @@
   <header class="page-head">
     <h1>Pocket Bill<span class="dot">.</span></h1>
     <p class="subtitle" id="homeSubtitle">日本旅費記帳</p>
+    <!-- 進入旅程列表 -->
+    <button class="head-btn" id="btnTrips" aria-label="切換旅程"><span class="tab-icon" data-icon="trip"></span></button>
   </header>
 
   <!-- 當日大數字 -->
@@ -32,6 +34,7 @@
     <div class="chip-row">
       <span class="chip" id="heroTwdChip">≈ NT$0</span>
       <span class="chip" id="heroCountChip">0 筆</span>
+      <span class="chip chip-accent" id="heroCashChip" hidden></span>
     </div>
   </section>
 
@@ -57,6 +60,7 @@
       <span class="chip chip-accent" id="totalTwdChip">≈ NT$0</span>
       <span class="chip" id="totalDaysChip">0 天</span>
       <span class="chip" id="avgDayChip"></span>
+      <span class="chip" id="paySplitChip" hidden></span>
     </div>
   </section>
 
@@ -82,6 +86,16 @@
   </section>
 </main>
 
+<!-- ===== 頁面 0：旅程列表（記帳的上一層） ===== -->
+<main id="view-trips" class="view">
+  <header class="page-head">
+    <h1>旅程<span class="dot">.</span></h1>
+    <p class="subtitle">選擇或新增旅遊記帳計劃</p>
+  </header>
+  <ul class="entry-list" id="tripList"></ul>
+  <button class="btn-new-trip" id="btnNewTrip">＋ 新增旅程</button>
+</main>
+
 <!-- ===== 頁面 3：設定 ===== -->
 <main id="view-settings" class="view">
   <header class="page-head">
@@ -90,10 +104,26 @@
   </header>
 
   <section class="card">
-    <div class="card-label">旅程</div>
+    <div class="card-label">目前旅程</div>
     <label class="setting-row">
-      <span>旅程開始日</span>
+      <span>旅程名稱</span>
+      <input type="text" id="tripNameInput" maxlength="20">
+    </label>
+    <label class="setting-row">
+      <span>去程日期</span>
       <input type="date" id="tripStartInput">
+    </label>
+    <label class="setting-row">
+      <span>回程日期</span>
+      <input type="date" id="tripEndInput">
+    </label>
+    <label class="setting-row">
+      <span>換匯台幣<br><span class="muted small">實際付的台幣</span></span>
+      <input type="text" inputmode="numeric" id="tripExTwdInput" placeholder="未填">
+    </label>
+    <label class="setting-row">
+      <span>換到日圓<br><span class="muted small">實際拿到的日圓</span></span>
+      <input type="text" inputmode="numeric" id="tripExJpyInput" placeholder="未填">
     </label>
   </section>
 
@@ -120,8 +150,8 @@
       <button class="btn-small" id="btnExport">匯出 JSON</button>
     </div>
     <div class="setting-row">
-      <span class="muted small">刪除本機所有記錄<br>無法復原</span>
-      <button class="btn-small danger" id="btnClear">清除全部</button>
+      <span class="muted small">刪除目前旅程的所有記錄<br>無法復原</span>
+      <button class="btn-small danger" id="btnClear">清除此旅程</button>
     </div>
   </section>
 
@@ -148,10 +178,16 @@
     <div class="amount-jpy"><span class="yen" id="curSymbol">¥</span><span id="amountShow">0</span></div>
     <div class="amount-twd" id="amountTwd">≈ NT$0</div>
   </div>
-  <!-- 幣別切換：輸入日圓或台幣 -->
-  <div class="cur-toggle" id="curToggle" role="radiogroup" aria-label="輸入幣別">
-    <button data-cur="jpy" class="active">¥ 日圓</button>
-    <button data-cur="twd">NT$ 台幣</button>
+  <!-- 幣別切換 + 付款方式 -->
+  <div class="toggle-row">
+    <div class="cur-toggle" id="curToggle" role="radiogroup" aria-label="輸入幣別">
+      <button data-cur="jpy" class="active">¥ 日圓</button>
+      <button data-cur="twd">NT$ 台幣</button>
+    </div>
+    <div class="cur-toggle" id="payToggle" role="radiogroup" aria-label="付款方式">
+      <button data-pay="cash" class="active">現金</button>
+      <button data-pay="card">刷卡</button>
+    </div>
   </div>
   <!-- 分類選擇（icon 由 app.js 注入） -->
   <div class="cat-chips" id="catChips" role="radiogroup" aria-label="分類"></div>
@@ -166,6 +202,33 @@
   <div class="sheet-actions">
     <button class="btn-delete" id="btnDelete" hidden>刪除</button>
     <button class="btn-save" id="btnSave">記一筆</button>
+  </div>
+</section>
+
+<!-- ===== 新增旅程面板 ===== -->
+<section class="sheet" id="tripSheet" aria-label="新增旅程">
+  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="sheet-title">新增旅程</div>
+  <input type="text" class="note-input" id="newTripName" placeholder="城市名稱，例：東京" maxlength="20">
+  <label class="setting-row">
+    <span>去程日期</span>
+    <input type="date" id="newTripStart">
+  </label>
+  <label class="setting-row">
+    <span>回程日期<br><span class="muted small">選填</span></span>
+    <input type="date" id="newTripEnd">
+  </label>
+  <div class="card-label" style="margin-top:14px">換匯（選填）— 填了就用你的實際匯率換算，並追蹤現金餘額</div>
+  <label class="setting-row">
+    <span>台幣付了</span>
+    <input type="text" inputmode="numeric" id="newTripExTwd" placeholder="例：25000">
+  </label>
+  <label class="setting-row">
+    <span>換到日圓</span>
+    <input type="text" inputmode="numeric" id="newTripExJpy" placeholder="例：118000">
+  </label>
+  <div class="sheet-actions">
+    <button class="btn-save" id="btnCreateTrip">建立旅程</button>
   </div>
 </section>
 

@@ -55,7 +55,13 @@ button { border: 0; background: none; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .view.active, .sheet, .fab svg { animation: none !important; transition: none !important; } }
 
 /* ===== 頁首 ===== */
-.page-head { margin: 18px 0 26px; }
+.page-head { margin: 18px 0 26px; position: relative; }
+.head-btn {
+  position: absolute; top: 2px; right: 0;
+  width: 44px; height: 44px; border-radius: 15px;
+  background: var(--card); display: grid; place-items: center;
+}
+.head-btn svg { width: 21px; height: 21px; stroke: var(--ink); }
 .page-head h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -.02em; }
 .page-head .dot { color: var(--accent); }
 .subtitle { color: var(--muted); font-size: .95rem; margin-top: 4px; font-weight: 400; }
@@ -117,6 +123,23 @@ button { border: 0; background: none; cursor: pointer; }
   text-align: center; color: var(--muted); font-size: .88rem;
   padding: 48px 0; line-height: 1.8;
 }
+
+/* ===== 旅程列表 ===== */
+.trip-card { flex-wrap: wrap; padding: 18px; }
+.t-name { font-size: 1.05rem; font-weight: 650; letter-spacing: -.01em; flex: 1; display: flex; align-items: center; gap: 8px; }
+.t-badge {
+  font-size: .64rem; font-weight: 600; color: #17181A;
+  background: var(--accent); border-radius: 999px; padding: 3px 9px;
+}
+.t-total { text-align: right; }
+.t-jpy { font-size: 1.05rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.t-meta { width: 100%; margin-top: 6px; font-size: .76rem; color: var(--muted); }
+.btn-new-trip {
+  width: 100%; margin-top: 16px; height: 54px; border-radius: 18px;
+  border: 1.5px dashed var(--muted); color: var(--ink-2);
+  font-size: .95rem; font-weight: 500;
+}
+.sheet-title { font-size: 1.05rem; font-weight: 650; margin: 2px 0 14px; text-align: center; }
 
 /* ===== 卡片（統計、設定） ===== */
 .card {
@@ -227,7 +250,9 @@ button { border: 0; background: none; cursor: pointer; }
 .amount-jpy .yen { font-size: 1.6rem; color: var(--ink-2); font-weight: 500; margin-right: 2px; }
 .amount-twd { font-size: .85rem; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
 
-/* 幣別切換 */
+/* 幣別／付款方式切換 */
+.toggle-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.toggle-row .cur-toggle { flex: 1; margin-bottom: 0; }
 .cur-toggle {
   display: flex; background: var(--card); border-radius: 999px;
   padding: 4px; margin-bottom: 12px;
