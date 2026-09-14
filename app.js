@@ -773,6 +773,7 @@ function renderCatChips() {
 
 /* ---------- 旅程日期面板（主頁直接開） ---------- */
 function openDateSheet() {
+  $('dateSheetName').value = T().name;
   $('dateSheetStart').value = T().start;
   $('dateSheetEnd').value = T().end || '';
   $('sheetMask').classList.add('show');
@@ -801,8 +802,9 @@ document.querySelectorAll('.tab-icon').forEach(el => { el.innerHTML = ICONS[el.d
 $('btnTrips').onclick = () => showView('view-trips');
 $('btnNewTrip').onclick = openTripSheet;
 
-// 旅程日期面板：完成
+// 旅程資訊面板：完成（名稱＋日期一起存）
 $('btnDateSave').onclick = () => {
+  T().name = $('dateSheetName').value.trim() || T().name;
   const start = $('dateSheetStart').value;
   let end = $('dateSheetEnd').value || null;
   if (start) T().start = start;
