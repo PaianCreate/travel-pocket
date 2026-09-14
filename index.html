@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Pocket Bill</title>
+<meta name="description" content="日本旅遊記帳 — 極簡淡色系旅費記帳 App">
+<!-- PWA 設定：加到主畫面後全螢幕、無瀏覽器介面 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Pocket Bill">
+<meta name="theme-color" content="#F5F5F3">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ===== 頁面 1：記帳（主頁） ===== -->
+<main id="view-home" class="view active">
+  <header class="page-head">
+    <h1>Pocket Bill<span class="dot">.</span></h1>
+    <p class="subtitle" id="homeSubtitle">日本旅費記帳</p>
+  </header>
+
+  <!-- 當日大數字 -->
+  <section class="hero">
+    <div class="hero-label" id="heroDayLabel">今日支出</div>
+    <div class="hero-num"><span class="hero-yen">¥</span><span id="heroJpy">0</span></div>
+    <div class="chip-row">
+      <span class="chip" id="heroTwdChip">≈ NT$0</span>
+      <span class="chip" id="heroCountChip">0 筆</span>
+    </div>
+  </section>
+
+  <!-- 天數選擇列（Day 1、Day 2…水平捲動） -->
+  <nav class="day-chips" id="dayChips" aria-label="選擇天數"></nav>
+
+  <!-- 當日消費清單 -->
+  <ul class="entry-list" id="entryList"></ul>
+</main>
+
+<!-- ===== 頁面 2：統計 ===== -->
+<main id="view-stats" class="view">
+  <header class="page-head">
+    <h1>統計<span class="dot">.</span></h1>
+    <p class="subtitle" id="statsSubtitle">旅程總覽</p>
+  </header>
+
+  <!-- 旅程總計大數字 -->
+  <section class="hero">
+    <div class="hero-label">旅程總支出</div>
+    <div class="hero-num"><span class="hero-yen">¥</span><span id="totalJpy">0</span></div>
+    <div class="chip-row">
+      <span class="chip chip-accent" id="totalTwdChip">≈ NT$0</span>
+      <span class="chip" id="totalDaysChip">0 天</span>
+      <span class="chip" id="avgDayChip"></span>
+    </div>
+  </section>
+
+  <!-- 分類佔比 -->
+  <section class="card">
+    <div class="card-label">分類佔比</div>
+    <div class="donut-wrap">
+      <svg id="donutSvg" viewBox="0 0 200 200" role="img" aria-label="各分類支出佔比圓環圖"></svg>
+      <div class="donut-center">
+        <div class="donut-center-name" id="donutCenterName">全部</div>
+        <div class="donut-center-val" id="donutCenterVal"></div>
+      </div>
+    </div>
+    <!-- 分類清單：同時是圖例與數據表 -->
+    <ul class="cat-legend" id="catLegend"></ul>
+  </section>
+
+  <!-- 每日支出 -->
+  <section class="card">
+    <div class="card-label">每日支出</div>
+    <div class="bars-wrap"><svg id="barsSvg" role="img" aria-label="每日支出長條圖"></svg></div>
+    <div class="bars-tip" id="barsTip"></div>
+  </section>
+</main>
+
+<!-- ===== 頁面 3：設定 ===== -->
+<main id="view-settings" class="view">
+  <header class="page-head">
+    <h1>設定<span class="dot">.</span></h1>
+    <p class="subtitle">旅程與匯率</p>
+  </header>
+
+  <section class="card">
+    <div class="card-label">旅程</div>
+    <label class="setting-row">
+      <span>旅程開始日</span>
+      <input type="date" id="tripStartInput">
+    </label>
+  </section>
+
+  <section class="card">
+    <div class="card-label">匯率 · 日圓 → 台幣</div>
+    <div class="setting-row">
+      <span>自動匯率</span>
+      <span class="num" id="autoRateShow">—</span>
+    </div>
+    <div class="setting-row">
+      <span class="muted small" id="rateUpdatedAt">尚未取得</span>
+      <button class="btn-small" id="btnRefreshRate">重新抓取</button>
+    </div>
+    <label class="setting-row">
+      <span>手動匯率<br><span class="muted small">留空＝使用自動</span></span>
+      <input type="text" inputmode="decimal" id="manualRateInput" placeholder="例：0.21">
+    </label>
+  </section>
+
+  <section class="card">
+    <div class="card-label">資料</div>
+    <div class="setting-row">
+      <span>共 <span id="entryCount">0</span> 筆記錄</span>
+      <button class="btn-small" id="btnExport">匯出 JSON</button>
+    </div>
+    <div class="setting-row">
+      <span class="muted small">刪除本機所有記錄<br>無法復原</span>
+      <button class="btn-small danger" id="btnClear">清除全部</button>
+    </div>
+  </section>
+
+  <p class="version muted small">Pocket Bill v1 · 資料只存在這支手機</p>
+</main>
+
+<!-- 新增按鈕 -->
+<button class="fab" id="fabAdd" aria-label="新增一筆消費">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<!-- 底部分頁列（icon 由 app.js 注入） -->
+<nav class="tabbar" id="tabbar">
+  <button class="tab active" data-view="view-home"><span class="tab-icon" data-icon="home"></span>記帳</button>
+  <button class="tab" data-view="view-stats"><span class="tab-icon" data-icon="stats"></span>統計</button>
+  <button class="tab" data-view="view-settings"><span class="tab-icon" data-icon="settings"></span>設定</button>
+</nav>
+
+<!-- ===== 輸入面板（bottom sheet） ===== -->
+<div class="sheet-mask" id="sheetMask"></div>
+<section class="sheet" id="entrySheet" aria-label="輸入消費">
+  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="amount-block">
+    <div class="amount-jpy"><span class="yen">¥</span><span id="amountShow">0</span></div>
+    <div class="amount-twd" id="amountTwd">≈ NT$0</div>
+  </div>
+  <!-- 分類選擇（icon 由 app.js 注入） -->
+  <div class="cat-chips" id="catChips" role="radiogroup" aria-label="分類"></div>
+  <input type="text" class="note-input" id="noteInput" placeholder="備註（選填）例：一蘭拉麵" maxlength="30">
+  <!-- 自訂數字鍵盤 -->
+  <div class="keypad" id="keypad">
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+    <button data-k="00">00</button><button data-k="0">0</button><button data-k="del" aria-label="刪除一位">⌫</button>
+  </div>
+  <div class="sheet-actions">
+    <button class="btn-delete" id="btnDelete" hidden>刪除</button>
+    <button class="btn-save" id="btnSave">記一筆</button>
+  </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
