@@ -255,6 +255,24 @@
   </div>
 </section>
 
+<!-- ===== 旅程日期面板（從主頁 Day 列直接開） ===== -->
+<section class="sheet cur-sheet" id="dateSheet" aria-label="設定旅程日期">
+  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="sheet-title">旅程日期</div>
+  <p class="cur-hint muted small">改完 Day 1、Day 2… 會自動重新對應</p>
+  <label class="setting-row">
+    <span>去程日期</span>
+    <input type="date" id="dateSheetStart">
+  </label>
+  <label class="setting-row">
+    <span>回程日期<br><span class="muted small">選填</span></span>
+    <input type="date" id="dateSheetEnd">
+  </label>
+  <div class="sheet-actions">
+    <button class="btn-save" id="btnDateSave">完成</button>
+  </div>
+</section>
+
 <!-- ===== 幣別選擇面板 ===== -->
 <section class="sheet cur-sheet" id="curSheet" aria-label="選擇輸入幣別">
   <div class="sheet-grip" aria-hidden="true"></div>

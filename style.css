@@ -110,6 +110,11 @@ button { border: 0; background: none; cursor: pointer; }
 .day-chip small { font-size: .66rem; color: var(--muted); }
 .day-chip.active { background: var(--ink); color: var(--bg); }
 .day-chip.active small { color: var(--bg); opacity: .6; }
+.day-chip-edit {
+  background: none; border: 1.5px dashed var(--muted); color: var(--ink-2);
+  justify-content: center;
+}
+.day-chip-edit svg { width: 17px; height: 17px; stroke: currentColor; }
 
 /* ===== 消費清單（可左滑刪除） ===== */
 .entry-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }

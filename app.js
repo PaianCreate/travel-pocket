@@ -48,6 +48,7 @@ const ICONS = {
   stats:   `<svg viewBox="0 0 24 24" ${STROKE}><path d="M6 20v-5M12 20V9M18 20V4"/></svg>`,
   settings:`<svg viewBox="0 0 24 24" ${STROKE}><path d="M21 5h-6M9 5H3M21 12h-4M11 12H3M21 19h-9M6 19H3"/><path d="M12 3v4M14 10v4M9 17v4"/></svg>`,
   trip:    `<svg viewBox="0 0 24 24" ${STROKE}><rect x="4.5" y="7" width="15" height="14" rx="2.5"/><path d="M9.5 7V5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v2M8.5 7v14M15.5 7v14"/></svg>`,
+  cal:     `<svg viewBox="0 0 24 24" ${STROKE}><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>`,
 };
 
 /* ---------- 資料存取 ---------- */
@@ -314,6 +315,13 @@ function renderHome() {
     b.onclick = () => { selectedDate = ds; renderHome(); };
     chips.appendChild(b);
   }
+  // Day 列最後的「日期」鈕：直接改旅程日期，不用進設定
+  const edit = document.createElement('button');
+  edit.className = 'day-chip day-chip-edit';
+  edit.setAttribute('aria-label', '設定旅程日期');
+  edit.innerHTML = `${ICONS.cal}<small>日期</small>`;
+  edit.onclick = openDateSheet;
+  chips.appendChild(edit);
   const act = chips.querySelector('.active');
   if (act) act.scrollIntoView({ inline: 'center', block: 'nearest' });
 
@@ -597,6 +605,7 @@ function closeSheets() {
   $('entrySheet').classList.remove('show');
   $('tripSheet').classList.remove('show');
   $('curSheet').classList.remove('show');
+  $('dateSheet').classList.remove('show');
   $('noteInput').blur();
 }
 function renderSheetAmount() {
@@ -677,6 +686,14 @@ function renderCatChips() {
   }
 }
 
+/* ---------- 旅程日期面板（主頁直接開） ---------- */
+function openDateSheet() {
+  $('dateSheetStart').value = T().start;
+  $('dateSheetEnd').value = T().end || '';
+  $('sheetMask').classList.add('show');
+  $('dateSheet').classList.add('show');
+}
+
 /* ---------- 新增旅程面板 ---------- */
 function openTripSheet() {
   $('newTripName').value = '';
@@ -696,6 +713,16 @@ document.querySelectorAll('.tab').forEach(tab => {
 document.querySelectorAll('.tab-icon').forEach(el => { el.innerHTML = ICONS[el.dataset.icon]; });
 $('btnTrips').onclick = () => showView('view-trips');
 $('btnNewTrip').onclick = openTripSheet;
+
+// 旅程日期面板：完成
+$('btnDateSave').onclick = () => {
+  const start = $('dateSheetStart').value;
+  let end = $('dateSheetEnd').value || null;
+  if (start) T().start = start;
+  if (end && end < T().start) end = null; // 回程比去程早就當沒填
+  T().end = end;
+  clampSelected(); save(); closeSheets(); renderAll();
+};
 
 // 建立旅程
 $('btnCreateTrip').onclick = () => {
