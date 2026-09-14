@@ -70,8 +70,9 @@ let S = (() => {
   let d = null;
   try { d = JSON.parse(localStorage.getItem(KEY)); } catch { /* 壞資料就重來 */ }
   if (!d) {
+    // 全新狀態：不提早 return，讓下面的預設值（cardFee、recentCurs…）一併補齊
     const t = newTrip('日本旅遊');
-    return { trips: [t], active: t.id, rates: {} };
+    d = { trips: [t], active: t.id, rates: {} };
   }
   if (!d.trips) {
     // 舊版單旅程格式 → 自動搬進第一個旅程，舊記錄付款方式預設現金
