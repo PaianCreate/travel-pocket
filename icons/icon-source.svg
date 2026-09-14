@@ -1,0 +1,12 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="#EFEEE9"/>
+  <g stroke="#21251E" stroke-width="32" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- 機身＋機翼＋尾翼 輪廓 -->
+    <path d="M512 158 C458 158 428 220 428 285 V420 L118 612 V668 L428 570 V716 L338 796 V848 L512 784 L686 848 V796 L596 716 V570 L906 668 V612 L596 420 V285 C596 220 566 158 512 158 Z"/>
+    <!-- 兩顆引擎：順著機翼前緣角度的小短艙 -->
+    <path d="M324 470 V436 a28 28 0 0 1 56 0 V470" transform="rotate(-32 352 470)"/>
+    <path d="M700 470 V436 a28 28 0 0 0 -56 0 V470" transform="rotate(32 672 470)"/>
+  </g>
+  <!-- 機身上的 $ -->
+  <text x="512" y="668" font-size="400" text-anchor="middle" font-family="Helvetica" font-weight="400" fill="#21251E">$</text>
+</svg>
