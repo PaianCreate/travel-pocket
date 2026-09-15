@@ -69,8 +69,10 @@ button { border: 0; background: none; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .view.active, .sheet, .fab svg { animation: none !important; transition: none !important; } }
 
 /* ===== 第一次使用畫面 ===== */
-#view-onboard.active { display: flex; flex-direction: column; min-height: 100dvh; }
+#view-onboard.active { display: flex; flex-direction: column; min-height: 100dvh; padding-bottom: 0; } /* 沒有分頁列，不需要預留 140px */
 .ob-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; padding-bottom: 40px; }
+/* 用 id 提高優先權：.btn-save 的 flex:1 是給輸入面板底排用的，這裡不能被它撐開或壓扁 */
+#view-onboard .ob-wrap > * { flex: 0 0 auto; }
 .ob-head { margin-bottom: 26px; }
 .ob-head h1 { font-size: 2.1rem; font-weight: 700; letter-spacing: -.025em; line-height: 1.22; }
 .ob-head .subtitle { margin-top: 8px; }
@@ -83,8 +85,17 @@ button { border: 0; background: none; cursor: pointer; }
 .ob-name::placeholder { color: var(--muted); opacity: .55; }
 .ob-name:focus { outline: none; border-bottom-color: var(--accent); }
 .ob-fields { background: var(--card); border-radius: var(--radius); padding: 6px 18px; margin-bottom: 22px; }
-.ob-go { width: 100%; height: 56px; font-size: 1.02rem; }
-.ob-foot { text-align: center; margin-top: 14px; }
+#view-onboard .ob-go { width: 100%; height: 56px; font-size: 1.02rem; }
+
+/* 空間不夠時（矮螢幕）縮小大標與間距 */
+@media (max-height: 740px) {
+  .ob-head h1 { font-size: 1.62rem; }
+  .ob-head { margin-bottom: 16px; }
+  .ob-head .subtitle { font-size: .86rem; }
+  .ob-name { font-size: 1.75rem; padding-bottom: 9px; margin-bottom: 14px; }
+  .ob-fields { padding: 2px 18px; margin-bottom: 16px; }
+  .ob-fields .setting-row { padding: 8px 0; }
+}
 
 /* ===== 頁首 ===== */
 .page-head { margin: 18px 0 26px; position: relative; }
@@ -297,6 +308,7 @@ button { border: 0; background: none; cursor: pointer; }
   gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); font-size: .92rem;
 }
 .setting-row:first-of-type { border-top: 0; }
+.setting-row input[type="date"] { min-width: 150px; }
 .setting-row input[type="date"], .setting-row input[type="text"], .setting-row select {
   background: var(--card-2); border: 0; border-radius: 12px;
   padding: 9px 12px; font-size: .92rem; text-align: right; max-width: 170px;
