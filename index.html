@@ -243,7 +243,7 @@
 <!-- ===== 輸入面板（bottom sheet） ===== -->
 <div class="sheet-mask" id="sheetMask"></div>
 <section class="sheet" id="entrySheet" aria-label="輸入消費">
-  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="sheet-handle" aria-hidden="true"><div class="sheet-grip"></div></div>
   <!-- 這筆會記到哪一天（點了可改） -->
   <button class="sheet-day" id="sheetDayBtn"></button>
   <div class="amount-block">
@@ -278,7 +278,7 @@
 
 <!-- ===== 新增旅程面板 ===== -->
 <section class="sheet" id="tripSheet" aria-label="新增旅程">
-  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="sheet-handle" aria-hidden="true"><div class="sheet-grip"></div></div>
   <div class="sheet-title" id="tripSheetTitle">新增旅程</div>
   <input type="text" class="note-input" id="newTripName" placeholder="城市名稱，例：東京" maxlength="20">
   <label class="setting-row">
@@ -313,14 +313,14 @@
 
 <!-- ===== 記到哪一天面板 ===== -->
 <section class="sheet cur-sheet" id="daySheet" aria-label="選擇記到哪一天">
-  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="sheet-handle" aria-hidden="true"><div class="sheet-grip"></div></div>
   <div class="sheet-title">這筆記到哪一天？</div>
   <div class="cur-grid day-grid" id="dayGrid"></div>
 </section>
 
 <!-- ===== 旅程日期面板（從主頁 Day 列直接開） ===== -->
 <section class="sheet cur-sheet" id="dateSheet" aria-label="設定旅程日期">
-  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="sheet-handle" aria-hidden="true"><div class="sheet-grip"></div></div>
   <div class="sheet-title">旅程資訊</div>
   <p class="cur-hint muted small">改日期後 Day 1、Day 2… 會自動重新對應</p>
   <input type="text" class="note-input" id="dateSheetName" placeholder="旅程名稱" maxlength="20">
@@ -339,7 +339,7 @@
 
 <!-- ===== 幣別選擇面板 ===== -->
 <section class="sheet cur-sheet" id="curSheet" aria-label="選擇輸入幣別">
-  <div class="sheet-grip" aria-hidden="true"></div>
+  <div class="sheet-handle" aria-hidden="true"><div class="sheet-grip"></div></div>
   <div class="sheet-title">用什麼幣別輸入？</div>
   <p class="cur-hint muted small">會自動換算成旅程主貨幣記錄，原始金額也會保留</p>
   <div class="cur-grid" id="curGrid"></div>

@@ -715,6 +715,7 @@ function openSheet(entry = null) {
   renderCatChips();
   renderPayToggle();
   renderQuickChips(entry);
+  openSheetNav();
   $('sheetMask').classList.add('show');
   $('entrySheet').classList.add('show');
 }
@@ -746,15 +747,75 @@ function renderQuickChips(editing) {
     box.appendChild(b);
   }
 }
-function closeSheets() {
+const SHEETS = ['entrySheet', 'tripSheet', 'curSheet', 'dateSheet', 'daySheet'];
+function hideSheets() {
   $('sheetMask').classList.remove('show');
-  $('entrySheet').classList.remove('show');
-  $('tripSheet').classList.remove('show');
-  $('curSheet').classList.remove('show');
-  $('dateSheet').classList.remove('show');
-  $('daySheet').classList.remove('show');
+  for (const id of SHEETS) {
+    const el = $(id);
+    el.classList.remove('show');
+    el.style.removeProperty('--drag');
+  }
   $('noteInput').blur();
 }
+function closeSheets() {
+  hideSheets();
+  closeSheetNav();
+}
+// 只收掉最上層：幣別／天數面板疊在輸入面板上時，關它自己就好
+function dismissTop() {
+  const sub = ['curSheet', 'daySheet'].find(id => $(id).classList.contains('show'));
+  if (sub && $('entrySheet').classList.contains('show')) {
+    $(sub).classList.remove('show');
+    $(sub).style.removeProperty('--drag');
+    return;
+  }
+  closeSheets();
+}
+
+/* ---------- 面板手勢與返回鍵 ---------- */
+// 往下拖曳關閉：從上方把手起手，拖超過 90px 就關
+function attachSheetDrag(sheet) {
+  const handle = sheet.querySelector('.sheet-handle');
+  if (!handle) return;
+  let y0 = 0, dy = 0, on = false;
+  handle.addEventListener('touchstart', ev => {
+    y0 = ev.touches[0].clientY; dy = 0; on = true;
+    sheet.classList.add('dragging');
+  }, { passive: true });
+  handle.addEventListener('touchmove', ev => {
+    if (!on) return;
+    dy = Math.max(0, ev.touches[0].clientY - y0);
+    sheet.style.setProperty('--drag', dy + 'px');
+  }, { passive: true });
+  const end = () => {
+    if (!on) return;
+    on = false;
+    sheet.classList.remove('dragging');
+    if (dy > 90) dismissTop();
+    else sheet.style.removeProperty('--drag');
+  };
+  handle.addEventListener('touchend', end);
+  handle.addEventListener('touchcancel', end);
+}
+for (const id of SHEETS) attachSheetDrag($(id));
+
+// 面板開著時多推一筆歷史，手機的返回手勢就能關掉它而不是離開 App
+let sheetNav = false;
+function openSheetNav() {
+  if (sheetNav) return;
+  sheetNav = true;
+  history.pushState({ pbSheet: true }, '');
+}
+function closeSheetNav() {
+  if (!sheetNav) return;
+  sheetNav = false;
+  history.back();
+}
+window.addEventListener('popstate', () => {
+  if (!sheetNav) return;
+  sheetNav = false;
+  hideSheets();
+});
 function renderSheetAmount() {
   const v = Number(sheetAmount || 0);
   // 顯示輸入中的數字：整數部分加千分位，小數照打的保留（讓「12.」的點看得到）
@@ -804,6 +865,7 @@ function openDaySheet() {
     };
     grid.appendChild(b);
   }
+  openSheetNav();
   $('daySheet').classList.add('show');
 }
 
@@ -842,6 +904,7 @@ function openCurSheet() {
     b.onclick = () => { setSheetCur(code); $('curSheet').classList.remove('show'); };
     grid.appendChild(b);
   }
+  openSheetNav();
   $('curSheet').classList.add('show');
 }
 function renderPayToggle() {
@@ -900,6 +963,7 @@ function openDateSheet() {
   $('dateSheetName').value = T().name;
   $('dateSheetStart').value = T().start;
   $('dateSheetEnd').value = T().end || '';
+  openSheetNav();
   $('sheetMask').classList.add('show');
   $('dateSheet').classList.add('show');
 }
@@ -913,6 +977,7 @@ function openTripSheet() {
   $('newTripBudget').value = '';
   $('newTripExTwd').value = '';
   $('newTripExJpy').value = '';
+  openSheetNav();
   $('sheetMask').classList.add('show');
   $('tripSheet').classList.add('show');
 }
@@ -1027,7 +1092,7 @@ $('btnDelete').onclick = () => {
 };
 
 $('fabAdd').onclick = () => openSheet();
-$('sheetMask').onclick = closeSheets;
+$('sheetMask').onclick = dismissTop;
 
 // 設定：目前旅程（名稱與日期都在「旅程資訊」面板改）
 $('btnEditTrip').onclick = openDateSheet;

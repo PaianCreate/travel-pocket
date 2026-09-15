@@ -370,6 +370,7 @@ button { border: 0; background: none; cursor: pointer; }
   opacity: 0; pointer-events: none; transition: opacity .22s; z-index: 30;
 }
 .sheet-mask.show { opacity: 1; pointer-events: auto; }
+.sheet.dragging { transition: none; }
 .sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 31;
   background: var(--bg); border-radius: 24px 24px 0 0;
@@ -378,8 +379,10 @@ button { border: 0; background: none; cursor: pointer; }
   max-width: 480px; margin: 0 auto;
   box-shadow: 0 -8px 40px rgba(0,0,0,.10);
 }
-.sheet.show { transform: none; }
-.sheet-grip { width: 36px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 14px; }
+.sheet.show { transform: translateY(var(--drag, 0px)); }
+/* 上方可拖曳關閉的區域：小灰條本身很細，用 padding 撐出好按的範圍 */
+.sheet-handle { padding: 6px 0 10px; cursor: grab; touch-action: none; }
+.sheet-grip { width: 40px; height: 5px; border-radius: 3px; background: var(--muted); opacity: .45; margin: 0 auto; }
 
 /* 記到哪一天 */
 .sheet-day {
@@ -473,7 +476,7 @@ button { border: 0; background: none; cursor: pointer; }
   .view { width: 480px; }
   .tabbar, .sheet { max-width: 480px; left: 50%; transform: translateX(-50%); }
   .sheet { transform: translate(-50%, 105%); }
-  .sheet.show { transform: translate(-50%, 0); }
+  .sheet.show { transform: translate(-50%, var(--drag, 0px)); }
   .fab { right: calc(50% - 240px + 22px); }
 }
 
