@@ -18,6 +18,40 @@
 </head>
 <body>
 
+<!-- ===== 頁面 0：第一次使用（沒有旅程時的首頁） ===== -->
+<main id="view-onboard" class="view">
+  <div class="ob-wrap">
+    <header class="ob-head">
+      <h1>開始你的<br>第一趟旅程<span class="dot">.</span></h1>
+      <p class="subtitle">記錄旅費、自動換算台幣，離線也能用</p>
+    </header>
+
+    <input type="text" class="ob-name" id="obName" placeholder="東京" maxlength="20" autocomplete="off">
+
+    <div class="ob-fields">
+      <label class="setting-row">
+        <span>去程</span>
+        <input type="date" id="obStart">
+      </label>
+      <label class="setting-row">
+        <span>回程<span class="muted small">　選填</span></span>
+        <input type="date" id="obEnd">
+      </label>
+      <label class="setting-row">
+        <span>當地貨幣</span>
+        <select id="obCur"></select>
+      </label>
+      <label class="setting-row">
+        <span>預算<span class="muted small">　選填</span></span>
+        <input type="text" inputmode="numeric" id="obBudget" placeholder="NT$ 30,000">
+      </label>
+    </div>
+
+    <button class="btn-save ob-go" id="obGo">開始記帳</button>
+    <p class="ob-foot muted small">資料只存在這支手機，不會上傳</p>
+  </div>
+</main>
+
 <!-- ===== 頁面 1：記帳（主頁） ===== -->
 <main id="view-home" class="view active">
  <!-- 上方固定區：標題、金額、天數列 -->
@@ -40,6 +74,7 @@
     <div class="chip-row">
       <span class="chip" id="heroTwdChip">≈ NT$0</span>
       <span class="chip" id="heroCountChip">0 筆</span>
+      <span class="chip" id="heroBudgetChip" hidden></span>
       <span class="chip chip-accent" id="heroCashChip" hidden></span>
     </div>
     <!-- 現金日預算／續航提示 -->
@@ -130,6 +165,10 @@
         <option value="TWD">台幣 NT$</option>
         <option value="LOCAL">記帳貨幣</option>
       </select>
+    </label>
+    <label class="setting-row">
+      <span>預算<br><span class="muted small">台幣，含刷卡</span></span>
+      <input type="text" inputmode="numeric" id="tripBudgetInput" placeholder="未填">
     </label>
     <label class="setting-row" id="rowExTwd">
       <span>換匯台幣<br><span class="muted small">實際付的台幣</span></span>
@@ -249,6 +288,10 @@
   <label class="setting-row">
     <span>回程日期<br><span class="muted small">選填</span></span>
     <input type="date" id="newTripEnd">
+  </label>
+  <label class="setting-row">
+    <span>預算<br><span class="muted small">台幣，選填</span></span>
+    <input type="text" inputmode="numeric" id="newTripBudget" placeholder="例：30000">
   </label>
   <div class="card-label" style="margin-top:14px">換匯（選填）— 填了就用你的實際匯率換算，並追蹤現金餘額</div>
   <label class="setting-row">

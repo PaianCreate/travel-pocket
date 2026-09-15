@@ -65,6 +65,7 @@ const newTrip = (name, start, end, exTwd, exJpy, cur) => ({
   id: uid(), name: name || '日本旅遊', start: start || todayStr(),
   end: end || null,        // 回程日（選填）
   cur: cur || 'TWD',       // 主貨幣代碼（預設台幣）
+  budget: null,            // 旅程總預算（台幣，含刷卡）
   exTwd: exTwd || null,    // 換匯：付了多少台幣
   exJpy: exJpy || null,    // 換匯：拿到多少當地貨幣（欄位名沿用 jpy）
   entries: []              // { id, date, time, jpy(當地金額), cat, note, pay:'cash'|'card' }
@@ -214,7 +215,9 @@ function showView(id) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === id));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
   $('fabAdd').style.display = id === 'view-home' ? '' : 'none';
-  document.querySelector('.tabbar').style.display = id === 'view-trips' ? 'none' : '';
+  const bare = id === 'view-trips' || id === 'view-onboard'; // 這兩頁不要分頁列
+  document.querySelector('.tabbar').style.display = bare ? 'none' : '';
+  if (id === 'view-onboard') $('fabAdd').style.display = 'none';
   renderAll();
 }
 
@@ -251,9 +254,13 @@ function renderTrips() {
     li.querySelector('.entry-del').onclick = () => {
       if (!confirm(`刪除「${t.name}」？這個旅程的 ${t.entries.length} 筆記錄會一起刪除，無法復原`)) return;
       S.trips = S.trips.filter(x => x.id !== t.id);
-      if (!S.trips.length) S.trips = [newTrip('我的旅程')]; // 永遠保留至少一個旅程
+      if (!S.trips.length) { // 刪光了就回到第一次使用的引導頁
+        S.trips = [newTrip('我的旅程')];
+        S.needsSetup = true;
+      }
       if (S.active === t.id) S.active = S.trips[0].id;
-      clampSelected(); save(); renderAll();
+      clampSelected(); save();
+      if (S.needsSetup) showView('view-onboard'); else renderAll();
     };
     el.addEventListener('click', () => {
       if (li._swiped) { li._swiped = false; return; }
@@ -334,10 +341,29 @@ function renderHome() {
     cashChip.textContent = `現金剩 ${CUR().sym}${fmtLoc(T().exJpy - cashSpent())}`;
   } else cashChip.hidden = true;
 
-  // 現金日預算／續航提示
+  // 預算餘額（含刷卡，用台幣算）
+  const budChip = $('heroBudgetChip');
+  if (T().budget) {
+    const left = T().budget - sumTwd(E());
+    budChip.hidden = false;
+    budChip.textContent = left >= 0 ? `預算剩 NT$${fmt(left)}` : `超出預算 NT$${fmt(-left)}`;
+  } else budChip.hidden = true;
+
+  // 日預算／續航提示：有總預算就優先用它（刷卡也算得到），否則退回現金
   const hint = $('cashHint');
   hint.hidden = true;
-  if (T().exJpy) {
+  if (T().budget) {
+    const left = T().budget - sumTwd(E());
+    const today = todayStr(), dToday = dayOfDate(today);
+    if (left < 0) {
+      hint.hidden = false;
+      hint.innerHTML = `已超出預算 <b>NT$${fmt(-left)}</b>`;
+    } else if (T().end && today >= T().start && today <= T().end) {
+      const daysLeft = dayOfDate(T().end) - dToday + 1;
+      hint.hidden = false;
+      hint.innerHTML = `到回程還 ${daysLeft} 天，每天可花 <b>NT$${fmt(left / daysLeft)}</b>`;
+    }
+  } else if (T().exJpy) {
     const cashLeft = T().exJpy - cashSpent();
     const today = todayStr();
     const dToday = dayOfDate(today);
@@ -644,6 +670,7 @@ function renderBars(n) {
 function renderSettings() {
   $('tripInfoShow').textContent = `${T().name} · ${shortDate(T().start)}${T().end ? ` – ${shortDate(T().end)}` : ''}`;
   $('tripCurSelect').value = T().cur;
+  $('tripBudgetInput').value = T().budget || '';
   $('tripExTwdInput').value = T().exTwd || '';
   $('tripExJpyInput').value = T().exJpy || '';
   // 主貨幣是台幣時：沒有換匯也沒有匯率可言，只留「現金預算」
@@ -726,8 +753,6 @@ function closeSheets() {
   $('dateSheet').classList.remove('show');
   $('daySheet').classList.remove('show');
   $('noteInput').blur();
-  // 首次引導被關掉就不再跳（用預設旅程也行，之後可自己新增）
-  if (S.needsSetup) { S.needsSetup = false; save(); }
 }
 function renderSheetAmount() {
   const v = Number(sheetAmount || 0);
@@ -838,6 +863,25 @@ function renderCatChips() {
   }
 }
 
+/* ---------- 第一次使用的引導頁 ---------- */
+$('obGo').onclick = () => {
+  const name = $('obName').value.trim() || $('obName').placeholder;
+  const start = $('obStart').value || todayStr();
+  let end = $('obEnd').value || null;
+  if (end && end < start) end = null;
+  const t = newTrip(name, start, end, null, null, $('obCur').value);
+  t.budget = parseInt($('obBudget').value, 10) || null;
+  // 取代一開始自動生出來的空白旅程
+  S.trips = [t, ...S.trips.filter(x => x.entries.length > 0)];
+  S.active = t.id;
+  S.needsSetup = false;
+  selectedDate = todayStr(); clampSelected();
+  save(); showView('view-home');
+  fetchRate();
+};
+// 打字時大字輸入框即時反映，按 Enter 直接開始
+$('obName').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); $('obGo').click(); } });
+
 /* ---------- 旅程日期面板（主頁直接開） ---------- */
 function openDateSheet() {
   $('dateSheetName').value = T().name;
@@ -849,12 +893,11 @@ function openDateSheet() {
 
 /* ---------- 新增旅程面板 ---------- */
 function openTripSheet() {
-  // 首次開啟時改成歡迎語，引導建立自己的旅程
-  $('tripSheetTitle').textContent = S.needsSetup ? '建立你的第一個旅程' : '新增旅程';
   $('newTripName').value = '';
   $('newTripCur').value = 'TWD';
   $('newTripStart').value = todayStr();
   $('newTripEnd').value = '';
+  $('newTripBudget').value = '';
   $('newTripExTwd').value = '';
   $('newTripExJpy').value = '';
   $('sheetMask').classList.add('show');
@@ -893,6 +936,7 @@ $('btnCreateTrip').onclick = () => {
   const exTwd = parseInt($('newTripExTwd').value, 10) || null;
   const exJpy = parseInt($('newTripExJpy').value, 10) || null;
   const t = newTrip(name, start, end, exTwd, exJpy, $('newTripCur').value);
+  t.budget = parseInt($('newTripBudget').value, 10) || null;
   S.trips.unshift(t);
   // 首次引導建立的旅程：把一開始自動生成的空白預設旅程換掉
   if (S.needsSetup) {
@@ -998,6 +1042,10 @@ $('tripCurSelect').onchange = ev => {
   save(); renderAll();
   fetchRate(); // 抓新貨幣的牌價
 };
+$('tripBudgetInput').onchange = ev => {
+  T().budget = parseInt(ev.target.value, 10) || null;
+  save(); renderAll();
+};
 $('tripExTwdInput').onchange = ev => {
   T().exTwd = parseInt(ev.target.value, 10) || null;
   save(); renderAll();
@@ -1085,13 +1133,14 @@ window.PB = {
 
 /* ---------- 啟動 ---------- */
 // 填入貨幣下拉選單（設定頁＋新增旅程面板）
-for (const id of ['tripCurSelect', 'newTripCur']) {
+$('obStart').value = todayStr();
+for (const id of ['tripCurSelect', 'newTripCur', 'obCur']) {
   $(id).innerHTML = CURS.map(c => `<option value="${c.code}">${c.name} ${c.code}</option>`).join('');
 }
 clampSelected();
 renderAll();
-// 第一次打開：直接引導建立旅程
-if (S.needsSetup) setTimeout(openTripSheet, 350);
+// 第一次打開：整頁引導建立第一趟旅程
+if (S.needsSetup) showView('view-onboard');
 fetchRate();
 window.addEventListener('online', () => fetchRate());
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
