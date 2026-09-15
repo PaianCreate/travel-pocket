@@ -191,7 +191,9 @@ function tripDayCount() {
 }
 const entriesOf = ds => E().filter(e => e.date === ds).sort((a, b) => (a.time < b.time ? 1 : -1));
 const sumJpy = list => list.reduce((s, e) => s + e.jpy, 0);
-const cashSpent = () => sumJpy(E().filter(e => e.pay !== 'card'));
+// 只有用記帳貨幣輸入的現金消費才動到當地現金；用台幣或其他幣別記的不算
+const isLocalCash = e => e.pay !== 'card' && !e.oc;
+const cashSpent = () => sumJpy(E().filter(isLocalCash));
 const clampSelected = () => {
   const d = dayOfDate(selectedDate);
   if (d < 1) selectedDate = T().start;
@@ -233,7 +235,7 @@ function renderTrips() {
     const cardR = rateFor(t.cur) * (1 + (S.cardFee || 0) / 100);
     const twdTotal = Math.round(t.entries.reduce((s, e) => s + e.jpy * (e.pay === 'card' ? cardR : cashR), 0));
     const range = t.end ? `${shortDate(t.start)} – ${shortDate(t.end)}` : `${shortDate(t.start)} 出發`;
-    const cashLeft = t.exJpy ? t.exJpy - sumJpy(t.entries.filter(e => e.pay !== 'card')) : null;
+    const cashLeft = t.exJpy ? t.exJpy - sumJpy(t.entries.filter(e => e.pay !== 'card' && !e.oc)) : null;
     const li = document.createElement('li');
     li.className = 'entry-row';
     li.innerHTML = `
@@ -824,7 +826,7 @@ function setSheetCur(code) {
     S.recentCurs = [code, ...S.recentCurs.filter(c => c !== code)].slice(0, 4);
     save();
   }
-  renderCurBtn(); updateDotKey(); renderSheetAmount();
+  renderCurBtn(); updateDotKey(); renderPayToggle(); renderSheetAmount();
 }
 function openCurSheet() {
   const grid = $('curGrid');
@@ -847,6 +849,9 @@ function renderPayToggle() {
     b.classList.toggle('active', b.dataset.pay === sheetPay);
     b.setAttribute('aria-checked', b.dataset.pay === sheetPay);
   });
+  // 用非記帳貨幣輸入時，標明是哪一種現金（不會扣當地現金餘額）
+  const cashBtn = document.querySelector('#payToggle [data-pay="cash"]');
+  cashBtn.textContent = (sheetCur === T().cur) ? '現金' : `${symOf(sheetCur)} 現金`;
 }
 function renderCatChips() {
   const box = $('catChips');
