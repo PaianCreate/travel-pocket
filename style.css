@@ -222,6 +222,9 @@ button { border: 0; background: none; cursor: pointer; }
 }
 
 /* ===== 旅程列表 ===== */
+/* 內容少時署名靠底，內容多時自然接在清單後面 */
+#view-trips.active { display: flex; flex-direction: column; min-height: 100dvh; }
+.credit { margin-top: auto; padding-top: 30px; text-align: center; letter-spacing: .02em; }
 .trip-card { flex-wrap: wrap; padding: 18px; }
 .t-name { font-size: 1.05rem; font-weight: 650; letter-spacing: -.01em; flex: 1; display: flex; align-items: center; gap: 8px; }
 .t-badge {
