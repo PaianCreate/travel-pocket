@@ -869,8 +869,10 @@ $('obGo').onclick = () => {
   const start = $('obStart').value || todayStr();
   let end = $('obEnd').value || null;
   if (end && end < start) end = null;
-  const t = newTrip(name, start, end, null, null, $('obCur').value);
+  const cash = parseInt($('obCash').value, 10) || null;
+  const t = newTrip(name, start, end, null, cash, $('obCur').value);
   t.budget = parseInt($('obBudget').value, 10) || null;
+  if (t.cur === 'TWD') t.exTwd = t.exJpy; // 台幣旅程換算比率固定為 1
   // 取代一開始自動生出來的空白旅程
   S.trips = [t, ...S.trips.filter(x => x.entries.length > 0)];
   S.active = t.id;
@@ -879,7 +881,14 @@ $('obGo').onclick = () => {
   save(); showView('view-home');
   fetchRate();
 };
-// 打字時大字輸入框即時反映，按 Enter 直接開始
+// 現金欄的範例金額跟著選的貨幣變
+function obCashHint() {
+  const c = curOf($('obCur').value);
+  const eg = { TWD: '10,000', JPY: '118,000', KRW: '400,000', VND: '5,000,000', IDR: '4,000,000' }[c.code] || '500';
+  $('obCash').placeholder = `${c.sym} ${eg}`;
+}
+$('obCur').onchange = obCashHint;
+// 按 Enter 直接開始
 $('obName').addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); $('obGo').click(); } });
 
 /* ---------- 旅程日期面板（主頁直接開） ---------- */
@@ -1137,6 +1146,7 @@ $('obStart').value = todayStr();
 for (const id of ['tripCurSelect', 'newTripCur', 'obCur']) {
   $(id).innerHTML = CURS.map(c => `<option value="${c.code}">${c.name} ${c.code}</option>`).join('');
 }
+obCashHint();
 clampSelected();
 renderAll();
 // 第一次打開：整頁引導建立第一趟旅程
