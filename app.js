@@ -50,6 +50,7 @@ const ICONS = {
   settings:`<svg viewBox="0 0 24 24" ${STROKE}><path d="M21 5h-6M9 5H3M21 12h-4M11 12H3M21 19h-9M6 19H3"/><path d="M12 3v4M14 10v4M9 17v4"/></svg>`,
   trip:    `<svg viewBox="0 0 24 24" ${STROKE}><rect x="4.5" y="7" width="15" height="14" rx="2.5"/><path d="M9.5 7V5a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v2M8.5 7v14M15.5 7v14"/></svg>`,
   cal:     `<svg viewBox="0 0 24 24" ${STROKE}><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>`,
+  chev:    `<svg viewBox="0 0 24 24" ${STROKE}><path d="M9 5l7 7-7 7"/></svg>`,
   pen:     `<svg class="pen" viewBox="0 0 24 24" ${STROKE}><path d="M4 20h4L20.5 7.5a2.8 2.8 0 0 0-4-4L4 16v4Z"/><path d="M14.5 5.5l4 4"/></svg>`,
 };
 
@@ -90,6 +91,7 @@ let S = (() => {
   for (const t of d.trips) if (!t.cur) t.cur = 'JPY';
   if (d.cardFee === undefined) d.cardFee = 1.5; // 刷卡手續費 %（台灣多數卡 1.5）
   if (!Array.isArray(d.recentCurs)) d.recentCurs = []; // 最近用過的輸入幣別
+  if (!d.display) d.display = 'TWD'; // 畫面顯示幣別：'TWD' 或 'LOCAL'（記錄一律存記帳貨幣）
   return d;
 })();
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
@@ -117,6 +119,14 @@ const payRate = pay => (pay === 'card' ? cardRate() : cashRate());
 // 一筆記錄換算台幣：依付款方式用不同匯率
 const entryTwd = e => e.jpy * payRate(e.pay);
 const sumTwd = list => Math.round(list.reduce((s, e) => s + entryTwd(e), 0));
+
+/* ---------- 顯示幣別 ----------
+   記錄永遠存記帳貨幣（e.jpy），這組工具只負責「畫面上要顯示成什麼」 */
+const showTwd = () => S.display !== 'LOCAL' && !isTwdTrip();
+const dSym = () => showTwd() ? 'NT$' : CUR().sym;
+const dOne = e => showTwd() ? fmt(entryTwd(e)) : fmtLoc(e.jpy);           // 單筆
+const dSum = list => showTwd() ? fmt(sumTwd(list)) : fmtLoc(sumJpy(list)); // 一組記錄合計
+const dCash = v => showTwd() ? fmt(v * cashRate()) : fmtLoc(v);            // 純現金金額（餘額、預算）
 
 /* ---------- 輸入幣別（可以是台幣或任何貨幣）的小工具 ---------- */
 const symOf = code => code === 'TWD' ? 'NT$' : curOf(code).sym;
@@ -308,17 +318,20 @@ function renderHome() {
   $('tripTitle').innerHTML = `<span class="t-text">${escapeHtml(T().name)}<span class="dot">.</span></span>${ICONS.pen}`;
   $('homeSubtitle').textContent = `Day ${dayN}${T().end ? ` / ${n}` : ''} · ${prettyDate(selectedDate)}`;
   $('heroDayLabel').textContent = isToday ? '今日支出' : `Day ${dayN} 支出`;
-  $('heroYen').textContent = CUR().sym;
-  $('heroJpy').textContent = fmtLoc(total);
+  $('heroYen').textContent = dSym();
+  $('heroJpy').textContent = dSum(list);
   $('heroTwdChip').hidden = isTwdTrip();
-  $('heroTwdChip').textContent = `≈ NT$${fmt(sumTwd(list))}`;
+  // 副 chip 顯示另一種幣別，兩個數字都看得到
+  $('heroTwdChip').textContent = showTwd()
+    ? `${CUR().sym}${fmtLoc(total)}`
+    : `≈ NT$${fmt(sumTwd(list))}`;
   $('heroCountChip').textContent = `${list.length} 筆`;
 
   // 現金餘額（有填換匯才顯示）
   const cashChip = $('heroCashChip');
   if (T().exJpy) {
     cashChip.hidden = false;
-    cashChip.textContent = `現金剩 ${CUR().sym}${fmtLoc(T().exJpy - cashSpent())}`;
+    cashChip.textContent = `現金剩 ${dSym()}${dCash(T().exJpy - cashSpent())}`;
   } else cashChip.hidden = true;
 
   // 現金日預算／續航提示
@@ -332,7 +345,7 @@ function renderHome() {
       // 有回程日：剩餘現金 ÷ 剩餘天數 ＝ 每天還可以花多少
       const daysLeft = dayOfDate(T().end) - dToday + 1;
       hint.hidden = false;
-      hint.innerHTML = `到回程還 ${daysLeft} 天，現金每天可花 <b>${CUR().sym}${fmtLoc(cashLeft / daysLeft)}</b>`;
+      hint.innerHTML = `到回程還 ${daysLeft} 天，現金每天可花 <b>${dSym()}${dCash(cashLeft / daysLeft)}</b>`;
     } else if (!T().end && dToday >= 1 && cashLeft > 0) {
       // 沒回程日：照目前燒錢速度估現金還能撐幾天
       const burn = cashSpent() / Math.max(dToday, 1);
@@ -342,7 +355,7 @@ function renderHome() {
       }
     } else if (cashLeft <= 0) {
       hint.hidden = false;
-      hint.innerHTML = `現金已用完，超支 <b>${CUR().sym}${fmtLoc(-cashLeft)}</b>`;
+      hint.innerHTML = `現金已用完，超支 <b>${dSym()}${dCash(-cashLeft)}</b>`;
     }
   }
 
@@ -389,8 +402,8 @@ function renderHome() {
           <div class="e-time">${cat.name} · ${e.time}${e.pay === 'card' ? ' · 刷卡' : ''}${e.oc ? ` · 原 ${symOf(e.oc)}${Number(e.oa).toLocaleString('en-US', { maximumFractionDigits: 2 })}` : ''}</div>
         </span>
         <span class="e-amount">
-          <div class="e-jpy">${CUR().sym}${fmtLoc(e.jpy)}</div>
-          ${isTwdTrip() ? '' : `<div class="e-twd">NT$${fmt(entryTwd(e))}</div>`}
+          <div class="e-jpy">${dSym()}${dOne(e)}</div>
+          ${isTwdTrip() ? '' : `<div class="e-twd">${showTwd() ? `${CUR().sym}${fmtLoc(e.jpy)}` : `NT$${fmt(entryTwd(e))}`}</div>`}
         </span>
       </div>`;
     const entryEl = li.querySelector('.entry');
@@ -449,19 +462,24 @@ function attachSwipe(row, el) {
 function renderStats() {
   const total = sumJpy(E());
   const n = tripDayCount();
-  $('totalYen').textContent = CUR().sym;
-  $('totalJpy').textContent = fmtLoc(total);
+  $('totalYen').textContent = dSym();
+  $('totalJpy').textContent = dSum(E());
   $('totalTwdChip').hidden = isTwdTrip();
-  $('totalTwdChip').textContent = `≈ NT$${fmt(sumTwd(E()))}`;
+  $('totalTwdChip').textContent = showTwd()
+    ? `${CUR().sym}${fmtLoc(total)}`
+    : `≈ NT$${fmt(sumTwd(E()))}`;
   $('totalDaysChip').textContent = `${n} 天`;
-  $('avgDayChip').textContent = `日均 ${CUR().sym}${fmtLoc(n ? total / n : 0)}`;
+  const avg = showTwd() ? sumTwd(E()) / (n || 1) : total / (n || 1);
+  $('avgDayChip').textContent = `日均 ${dSym()}${showTwd() ? fmt(avg) : fmtLoc(avg)}`;
   $('statsSubtitle').textContent = `${T().name} · ${prettyDate(T().start)} 出發 · 共 ${E().length} 筆`;
 
   // 現金／刷卡各花多少
-  const cash = cashSpent(), card = total - cash;
+  const cashList = E().filter(e => e.pay !== 'card'), cardList = E().filter(e => e.pay === 'card');
   const split = $('paySplitChip');
-  if (card > 0) { split.hidden = false; split.textContent = `現金 ${CUR().sym}${fmtLoc(cash)} · 刷卡 ${CUR().sym}${fmtLoc(card)}`; }
-  else split.hidden = true;
+  if (cardList.length) {
+    split.hidden = false;
+    split.textContent = `現金 ${dSym()}${dSum(cashList)} · 刷卡 ${dSym()}${dSum(cardList)}`;
+  } else split.hidden = true;
 
   renderDonut(total);
   renderBars(n);
@@ -471,13 +489,18 @@ function renderStats() {
 function renderDonut(total) {
   const svg = $('donutSvg');
   svg.innerHTML = '';
-  const data = CATS.map(c => ({ ...c, v: sumJpy(E().filter(e => e.cat === c.id)) })).filter(d => d.v > 0);
+  const data = CATS.map(c => {
+    const l = E().filter(e => e.cat === c.id);
+    return { ...c, v: showTwd() ? sumTwd(l) : sumJpy(l) }; // v＝顯示幣別的金額
+  }).filter(d => d.v > 0);
+  total = data.reduce((a, d) => a + d.v, 0); // 佔比跟著顯示幣別算
   const cx = 100, cy = 100, R = 88, r = 62;
 
   if (!data.length) {
     svg.innerHTML = `<circle cx="100" cy="100" r="75" fill="none" stroke="var(--line)" stroke-width="24"/>`;
     $('donutCenterName').textContent = '尚無資料';
     $('donutCenterVal').textContent = '';
+    $('donutCenterPct').textContent = '';
     $('catLegend').innerHTML = '';
     return;
   }
@@ -505,40 +528,47 @@ function renderDonut(total) {
     el.onclick = () => { donutFocus = donutFocus === d.id ? null : d.id; renderStats(); };
     svg.appendChild(el);
   }
+  // 中心：未選取顯示總計，選取後顯示該分類金額與佔比
   const f = donutFocus ? data.find(d => d.id === donutFocus) : null;
   $('donutCenterName').textContent = f ? f.name : '全部';
-  $('donutCenterVal').textContent = `${CUR().sym}${fmtLoc(f ? f.v : total)}`;
+  $('donutCenterVal').textContent = `${dSym()}${showTwd() ? fmt(f ? f.v : total) : fmtLoc(f ? f.v : total)}`;
+  $('donutCenterPct').textContent = f ? `${Math.round(f.v / total * 100)}%` : '';
 
+  // 分類列＝可點按鈕，展開時明細直接接在它底下
   const lg = $('catLegend');
   lg.innerHTML = '';
   for (const d of data.slice().sort((x, y) => y.v - x.v)) {
+    const open = donutFocus === d.id;
     const li = document.createElement('li');
+    li.className = 'cat-item' + (open ? ' open' : '');
     li.innerHTML = `
-      <span class="l-dot" style="background:${d.hex}"></span>
-      <span class="l-icon">${ICONS[d.id]}</span>
-      <span class="l-name">${d.name}</span>
-      <span class="l-val">${CUR().sym}${fmtLoc(d.v)}</span>
-      <span class="l-pct">${Math.round(d.v / total * 100)}%</span>`;
-    li.onclick = () => { donutFocus = donutFocus === d.id ? null : d.id; renderStats(); };
-    lg.appendChild(li);
-  }
-
-  // 點選分類 → 列出該分類的每一筆明細（點明細可跳到那一天）
-  const ce = $('catEntries');
-  ce.innerHTML = '';
-  if (donutFocus) {
-    const cat = CATS.find(c => c.id === donutFocus);
-    const list = E().filter(e => e.cat === donutFocus)
-      .sort((a, b) => ((a.date + a.time) < (b.date + b.time) ? 1 : -1));
-    for (const e of list) {
-      const li = document.createElement('li');
-      li.innerHTML = `
-        <span class="ce-note">${e.note ? escapeHtml(e.note) : cat.name}</span>
-        <span class="ce-day">Day ${dayOfDate(e.date)} · ${shortDate(e.date)}</span>
-        <span class="ce-amt">${CUR().sym}${fmtLoc(e.jpy)}</span>`;
-      li.onclick = () => { selectedDate = e.date; showView('view-home'); };
-      ce.appendChild(li);
+      <button class="cat-row">
+        <span class="l-dot" style="background:${d.hex}"></span>
+        <span class="l-icon">${ICONS[d.id]}</span>
+        <span class="l-name">${d.name}</span>
+        <span class="l-val">${dSym()}${showTwd() ? fmt(d.v) : fmtLoc(d.v)}</span>
+        <span class="chev">${ICONS.chev}</span>
+      </button>`;
+    li.querySelector('.cat-row').onclick = () => {
+      donutFocus = open ? null : d.id; renderStats();
+    };
+    if (open) {
+      // 明細：左邊日期、右邊金額；點一下跳到那一天
+      const sub = document.createElement('ul');
+      sub.className = 'cat-sub';
+      const list = E().filter(e => e.cat === d.id)
+        .sort((a, b) => ((a.date + a.time) < (b.date + b.time) ? 1 : -1));
+      for (const e of list) {
+        const row = document.createElement('li');
+        row.innerHTML = `
+          <span class="ce-day">Day ${dayOfDate(e.date)} · ${shortDate(e.date)}</span>
+          <span class="ce-amt">${dSym()}${dOne(e)}</span>`;
+        row.onclick = () => { selectedDate = e.date; showView('view-home'); };
+        sub.appendChild(row);
+      }
+      li.appendChild(sub);
     }
+    lg.appendChild(li);
   }
 }
 function arcPath(cx, cy, R, r, a0, a1) {
@@ -554,7 +584,10 @@ function arcPath(cx, cy, R, r, a0, a1) {
 function renderBars(n) {
   const svg = $('barsSvg');
   const sums = [];
-  for (let i = 1; i <= n; i++) sums.push({ day: i, ds: dateOfDay(i), v: sumJpy(entriesOf(dateOfDay(i))) });
+  for (let i = 1; i <= n; i++) {
+    const l = entriesOf(dateOfDay(i));
+    sums.push({ day: i, ds: dateOfDay(i), v: showTwd() ? sumTwd(l) : sumJpy(l) });
+  }
   const max = Math.max(...sums.map(s => s.v), 1);
   const bw = 20, gap = 14, H = 150, top = 22, bottom = 20;
   const W = Math.max(n * (bw + gap) + gap, 300);
@@ -576,7 +609,8 @@ function renderBars(n) {
       p.setAttribute('class', 'bar-rect');
       p.onclick = () => {
         barFocus = barFocus === s.day ? null : s.day;
-        $('barsTip').textContent = barFocus ? `Day ${s.day} · ${shortDate(s.ds)} · ${CUR().sym}${fmtLoc(s.v)}（NT$${fmt(sumTwd(entriesOf(s.ds)))}）` : '';
+        $('barsTip').textContent = barFocus
+          ? `Day ${s.day} · ${shortDate(s.ds)} · ${dSym()}${showTwd() ? fmt(s.v) : fmtLoc(s.v)}` : '';
         renderBars(n);
       };
       svg.appendChild(p);
@@ -585,7 +619,7 @@ function renderBars(n) {
         t.setAttribute('x', x + bw / 2); t.setAttribute('y', y - 7);
         t.setAttribute('text-anchor', 'middle');
         t.setAttribute('font-size', '10'); t.setAttribute('fill', 'var(--ink-2)');
-        t.textContent = `${CUR().sym}${fmtLoc(s.v)}`;
+        t.textContent = `${dSym()}${showTwd() ? fmt(s.v) : fmtLoc(s.v)}`;
         svg.appendChild(t);
       }
     }
@@ -611,6 +645,8 @@ function renderSettings() {
   $('tripExJpyInput').value = T().exJpy || '';
   // 主貨幣是台幣時：沒有換匯也沒有匯率可言，只留「現金預算」
   $('rowExTwd').hidden = isTwdTrip();
+  $('rowDisplay').hidden = isTwdTrip(); // 記帳貨幣已是台幣就沒得換
+  $('displaySelect').value = S.display;
   $('rateCard').hidden = isTwdTrip();
   $('labelExJpy').innerHTML = isTwdTrip()
     ? '現金預算<br><span class="muted small">帶了多少現金</span>'
@@ -935,6 +971,7 @@ $('sheetMask').onclick = closeSheets;
 
 // 設定：目前旅程（名稱與日期都在「旅程資訊」面板改）
 $('btnEditTrip').onclick = openDateSheet;
+$('displaySelect').onchange = ev => { S.display = ev.target.value; save(); renderAll(); };
 $('tripCurSelect').onchange = ev => {
   const from = T().cur, to = ev.target.value;
   if (from === to) return;

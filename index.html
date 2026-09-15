@@ -81,12 +81,11 @@
       <div class="donut-center">
         <div class="donut-center-name" id="donutCenterName">全部</div>
         <div class="donut-center-val" id="donutCenterVal"></div>
+        <div class="donut-center-pct" id="donutCenterPct"></div>
       </div>
     </div>
     <!-- 分類清單：同時是圖例與數據表 -->
     <ul class="cat-legend" id="catLegend"></ul>
-    <!-- 點選分類後的明細清單 -->
-    <ul class="cat-entries" id="catEntries"></ul>
   </section>
 
   <!-- 每日支出 -->
@@ -122,8 +121,15 @@
       <span class="row-val" id="tripInfoShow"></span>
     </button>
     <label class="setting-row">
-      <span>主要貨幣</span>
+      <span>記帳貨幣<br><span class="muted small">金額實際存成這個幣別</span></span>
       <select id="tripCurSelect"></select>
+    </label>
+    <label class="setting-row" id="rowDisplay">
+      <span>畫面顯示<br><span class="muted small">只影響顯示，不動記錄</span></span>
+      <select id="displaySelect">
+        <option value="TWD">台幣 NT$</option>
+        <option value="LOCAL">記帳貨幣</option>
+      </select>
     </label>
     <label class="setting-row" id="rowExTwd">
       <span>換匯台幣<br><span class="muted small">實際付的台幣</span></span>

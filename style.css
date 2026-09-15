@@ -90,7 +90,7 @@ button { border: 0; background: none; cursor: pointer; }
   width: 18px; height: 18px; margin-left: 9px; stroke: var(--muted);
 }
 .h1-edit:active { opacity: .55; }
-.page-head .subtitle { padding-right: 56px; }
+#view-home .subtitle { padding-right: 56px; } /* 只有首頁右上角有按鈕要避開 */
 .page-head .dot { color: var(--accent); }
 .subtitle { color: var(--muted); font-size: .95rem; margin-top: 4px; font-weight: 400; }
 
@@ -228,18 +228,38 @@ button { border: 0; background: none; cursor: pointer; }
 .donut-seg.dim { opacity: .25; }
 
 /* 分類圖例（也是數據表） */
-.cat-legend { list-style: none; display: flex; flex-direction: column; gap: 2px; }
-.cat-legend li {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 2px; border-top: 1px solid var(--line); font-size: .88rem;
+.cat-legend { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+/* 分類列做成明確的可點按鈕 */
+.cat-row {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  background: var(--card-2); border-radius: 14px; padding: 12px 14px;
+  font-size: .88rem; color: var(--ink);
+  transition: background .15s, color .15s;
 }
-.cat-legend li:first-child { border-top: 0; }
+.cat-row:active { transform: scale(.985); }
 .l-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
 .l-icon { width: 16px; height: 16px; flex: 0 0 auto; }
-.l-icon svg { width: 16px; height: 16px; stroke: var(--ink-2); }
-.l-name { flex: 1; }
+.l-icon svg { width: 16px; height: 16px; stroke: currentColor; opacity: .6; }
+.l-name { flex: 1; text-align: left; }
 .l-val { font-weight: 600; font-variant-numeric: tabular-nums; }
-.l-pct { color: var(--muted); font-size: .76rem; width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
+.chev { width: 15px; height: 15px; flex: 0 0 auto; opacity: .4; transition: transform .2s; }
+.chev svg { width: 15px; height: 15px; stroke: currentColor; }
+/* 展開中的分類：沿用 Day 列的選取樣式 */
+.cat-item.open .cat-row { background: var(--ink); color: var(--bg); border-radius: 14px 14px 0 0; }
+.cat-item.open .chev { transform: rotate(90deg); opacity: .7; }
+/* 明細：左邊日期、右邊金額 */
+.cat-sub {
+  list-style: none; background: var(--card-2);
+  border-radius: 0 0 14px 14px; padding: 2px 14px 6px;
+}
+.cat-sub li {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 0; border-top: 1px solid var(--line); font-size: .84rem;
+}
+.ce-day { color: var(--ink-2); }
+.ce-amt { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* 中心的佔比 */
+.donut-center-pct { font-size: .74rem; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
 
 /* ===== 長條圖 ===== */
 .bars-wrap { overflow-x: auto; scrollbar-width: none; }
@@ -331,17 +351,6 @@ button { border: 0; background: none; cursor: pointer; }
 }
 .sheet-day b { color: var(--ink); font-weight: 600; }
 .day-grid { grid-template-columns: repeat(4, 1fr); }
-
-/* 分類明細清單 */
-.cat-entries { list-style: none; margin-top: 4px; }
-.cat-entries:empty { display: none; }
-.cat-entries li {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 2px; border-top: 1px solid var(--line); font-size: .84rem;
-}
-.ce-note { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ce-day { color: var(--muted); font-size: .74rem; flex: 0 0 auto; }
-.ce-amt { font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .amount-block { text-align: center; margin-bottom: 16px; }
 .amount-jpy { font-size: 2.9rem; font-weight: 650; letter-spacing: -.03em; line-height: 1.1; }
