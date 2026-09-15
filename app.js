@@ -18,6 +18,7 @@ const CATS = [
 
 /* ---------- 支援的當地貨幣（fb＝離線時的保底匯率，連網後會被真實牌價蓋掉；dec＝有小數） ---------- */
 const CURS = [
+  { code: 'TWD', sym: 'NT$', name: '台幣',     dec: false, fb: 1 },
   { code: 'JPY', sym: '¥',   name: '日圓',     dec: false, fb: 0.21 },
   { code: 'KRW', sym: '₩',   name: '韓元',     dec: false, fb: 0.023 },
   { code: 'USD', sym: '$',   name: '美元',     dec: true,  fb: 32 },
@@ -62,7 +63,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const newTrip = (name, start, end, exTwd, exJpy, cur) => ({
   id: uid(), name: name || '日本旅遊', start: start || todayStr(),
   end: end || null,        // 回程日（選填）
-  cur: cur || 'JPY',       // 當地貨幣代碼
+  cur: cur || 'TWD',       // 主貨幣代碼（預設台幣）
   exTwd: exTwd || null,    // 換匯：付了多少台幣
   exJpy: exJpy || null,    // 換匯：拿到多少當地貨幣（欄位名沿用 jpy）
   entries: []              // { id, date, time, jpy(當地金額), cat, note, pay:'cash'|'card' }
@@ -74,12 +75,12 @@ let S = (() => {
   if (!d) {
     // 全新狀態：不提早 return，讓下面的預設值（cardFee、recentCurs…）一併補齊
     // needsSetup＝第一次打開，引導先建立自己的旅程
-    const t = newTrip('日本旅遊');
+    const t = newTrip('我的旅程');
     d = { trips: [t], active: t.id, rates: {}, needsSetup: true };
   }
   if (!d.trips) {
     // 舊版單旅程格式 → 自動搬進第一個旅程，舊記錄付款方式預設現金
-    const t = newTrip('日本旅遊', d.tripStart);
+    const t = newTrip('日本旅遊', d.tripStart, null, null, null, 'JPY');
     t.entries = (d.entries || []).map(e => ({ ...e, pay: e.pay || 'cash' }));
     d = { trips: [t], active: t.id, rate: d.rate };
   }
@@ -104,11 +105,13 @@ const R = code => (S.rates[code] ||= { auto: null, ts: 0, manual: null }); // �
    刷卡：牌價（手動 > 自動 > 保底）×（1 + 手續費%），不吃換匯匯率 */
 const tripRate = () => (T().exTwd && T().exJpy) ? T().exTwd / T().exJpy : null;
 const rateFor = code => {
+  if (code === 'TWD') return 1; // 台幣對台幣永遠是 1，不查牌價
   const r = R(code);
   return r.manual || r.auto || curOf(code).fb;
 };
+const isTwdTrip = () => T().cur === 'TWD'; // 主貨幣就是台幣時，很多換算欄位是多餘的
 const cashRate = () => tripRate() || rateFor(T().cur);
-const cardRate = () => rateFor(T().cur) * (1 + (S.cardFee || 0) / 100);
+const cardRate = () => isTwdTrip() ? 1 : rateFor(T().cur) * (1 + (S.cardFee || 0) / 100);
 const rate = () => cashRate(); // 一般顯示用現金匯率
 const payRate = pay => (pay === 'card' ? cardRate() : cashRate());
 // 一筆記錄換算台幣：依付款方式用不同匯率
@@ -131,6 +134,7 @@ const rateAgeDays = code => {
 
 async function fetchRate(force = false, code = null) {
   code = code || T().cur;
+  if (code === 'TWD') return; // 不需要查台幣兌台幣
   const r = R(code);
   if (!force && r.auto && Date.now() - r.ts < 12 * 3600e3) return;
   if (!navigator.onLine) return;
@@ -238,7 +242,7 @@ function renderTrips() {
     li.querySelector('.entry-del').onclick = () => {
       if (!confirm(`刪除「${t.name}」？這個旅程的 ${t.entries.length} 筆記錄會一起刪除，無法復原`)) return;
       S.trips = S.trips.filter(x => x.id !== t.id);
-      if (!S.trips.length) S.trips = [newTrip('日本旅遊')]; // 永遠保留至少一個旅程
+      if (!S.trips.length) S.trips = [newTrip('我的旅程')]; // 永遠保留至少一個旅程
       if (S.active === t.id) S.active = S.trips[0].id;
       clampSelected(); save(); renderAll();
     };
@@ -306,6 +310,7 @@ function renderHome() {
   $('heroDayLabel').textContent = isToday ? '今日支出' : `Day ${dayN} 支出`;
   $('heroYen').textContent = CUR().sym;
   $('heroJpy').textContent = fmtLoc(total);
+  $('heroTwdChip').hidden = isTwdTrip();
   $('heroTwdChip').textContent = `≈ NT$${fmt(sumTwd(list))}`;
   $('heroCountChip').textContent = `${list.length} 筆`;
 
@@ -385,7 +390,7 @@ function renderHome() {
         </span>
         <span class="e-amount">
           <div class="e-jpy">${CUR().sym}${fmtLoc(e.jpy)}</div>
-          <div class="e-twd">NT$${fmt(entryTwd(e))}</div>
+          ${isTwdTrip() ? '' : `<div class="e-twd">NT$${fmt(entryTwd(e))}</div>`}
         </span>
       </div>`;
     const entryEl = li.querySelector('.entry');
@@ -446,6 +451,7 @@ function renderStats() {
   const n = tripDayCount();
   $('totalYen').textContent = CUR().sym;
   $('totalJpy').textContent = fmtLoc(total);
+  $('totalTwdChip').hidden = isTwdTrip();
   $('totalTwdChip').textContent = `≈ NT$${fmt(sumTwd(E()))}`;
   $('totalDaysChip').textContent = `${n} 天`;
   $('avgDayChip').textContent = `日均 ${CUR().sym}${fmtLoc(n ? total / n : 0)}`;
@@ -476,8 +482,19 @@ function renderDonut(total) {
     return;
   }
   const TAU = Math.PI * 2, pad = data.length > 1 ? 0.035 : 0;
+  if (data.length === 1) {
+    // 單一分類＝整個圓，用描邊畫，避免滿圈弧線退化
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', cx); c.setAttribute('cy', cy);
+    c.setAttribute('r', (R + r) / 2);
+    c.setAttribute('fill', 'none');
+    c.setAttribute('stroke', data[0].hex);
+    c.setAttribute('stroke-width', R - r);
+    svg.appendChild(c);
+  }
   let a = -Math.PI / 2;
   for (const d of data) {
+    if (data.length === 1) break;
     const span = (d.v / total) * TAU;
     const a0 = a + pad / 2, a1 = a + span - pad / 2;
     a += span;
@@ -592,6 +609,12 @@ function renderSettings() {
   $('tripCurSelect').value = T().cur;
   $('tripExTwdInput').value = T().exTwd || '';
   $('tripExJpyInput').value = T().exJpy || '';
+  // 主貨幣是台幣時：沒有換匯也沒有匯率可言，只留「現金預算」
+  $('rowExTwd').hidden = isTwdTrip();
+  $('rateCard').hidden = isTwdTrip();
+  $('labelExJpy').innerHTML = isTwdTrip()
+    ? '現金預算<br><span class="muted small">帶了多少現金</span>'
+    : '換到當地貨幣<br><span class="muted small">實際拿到的金額</span>';
   const r = R(T().cur), tr = tripRate();
   $('rateCardLabel').textContent = `匯率 · ${CUR().name} → 台幣`;
   $('autoRateShow').textContent = (tr ? `${tr.toFixed(4)}（本旅程換匯）` : (r.auto ? r.auto.toFixed(4) : '—'));
@@ -681,7 +704,10 @@ function renderSheetAmount() {
   const usingMarket = thirdCur || sheetPay === 'card' || !tripRate();
   const age = rateAgeDays(sheetCur === 'TWD' ? T().cur : sheetCur);
   const stale = (usingMarket && age !== null && age >= 1) ? `（${age} 天前的牌價）` : '';
-  if (sheetCur === T().cur) {
+  if (sheetCur === T().cur && isTwdTrip()) {
+    // 台幣旅程用台幣輸入，沒有東西要換算
+    $('amountTwd').textContent = '';
+  } else if (sheetCur === T().cur) {
     // 主貨幣輸入 → 顯示台幣
     $('amountTwd').textContent = `≈ NT$${fmt(v * r)} · ${tag} ${r.toFixed(rd)}${stale}`;
   } else if (sheetCur === 'TWD') {
@@ -741,9 +767,9 @@ function openCurSheet() {
   const grid = $('curGrid');
   grid.innerHTML = '';
   // 順序：旅程主貨幣 → 台幣 → 最近用過 → 其他
-  const codes = [T().cur, 'TWD',
+  const codes = [...new Set([T().cur, 'TWD',
     ...S.recentCurs.filter(c => c !== T().cur && c !== 'TWD'),
-    ...CURS.map(c => c.code).filter(c => c !== T().cur && c !== 'TWD' && !S.recentCurs.includes(c))];
+    ...CURS.map(c => c.code).filter(c => c !== T().cur && c !== 'TWD' && !S.recentCurs.includes(c))])];
   for (const code of codes) {
     const b = document.createElement('button');
     b.className = code === sheetCur ? 'active' : '';
@@ -787,7 +813,7 @@ function openTripSheet() {
   // 首次開啟時改成歡迎語，引導建立自己的旅程
   $('tripSheetTitle').textContent = S.needsSetup ? '建立你的第一個旅程' : '新增旅程';
   $('newTripName').value = '';
-  $('newTripCur').value = 'JPY';
+  $('newTripCur').value = 'TWD';
   $('newTripStart').value = todayStr();
   $('newTripEnd').value = '';
   $('newTripExTwd').value = '';
@@ -910,7 +936,24 @@ $('sheetMask').onclick = closeSheets;
 // 設定：目前旅程（名稱與日期都在「旅程資訊」面板改）
 $('btnEditTrip').onclick = openDateSheet;
 $('tripCurSelect').onchange = ev => {
-  T().cur = ev.target.value;
+  const from = T().cur, to = ev.target.value;
+  if (from === to) return;
+  // 既有記錄存的是舊貨幣金額，不換算的話 ¥5,520 會直接變成 NT$5,520
+  if (E().length) {
+    const k = rateFor(from) / rateFor(to); // 舊貨幣 → 新貨幣
+    const ok = confirm(
+      `把現有 ${E().length} 筆記錄一起換算成${nameOf(to)}嗎？\n` +
+      `（用目前牌價 1 ${nameOf(from)} ≈ ${k.toFixed(4)} ${nameOf(to)}）\n\n` +
+      `按「取消」則只改幣別符號，金額數字維持不變。`);
+    if (ok) {
+      const dec = curOf(to).dec;
+      for (const e of E()) {
+        e.jpy = dec ? Math.round(e.jpy * k * 100) / 100 : Math.round(e.jpy * k);
+        delete e.oc; delete e.oa; // 原始外幣金額已無對應關係
+      }
+    }
+  }
+  T().cur = to;
   T().exTwd = T().exJpy = null; // 換匯金額是舊貨幣的數字，換幣別後清掉重填
   save(); renderAll();
   fetchRate(); // 抓新貨幣的牌價
@@ -921,6 +964,7 @@ $('tripExTwdInput').onchange = ev => {
 };
 $('tripExJpyInput').onchange = ev => {
   T().exJpy = parseInt(ev.target.value, 10) || null;
+  if (isTwdTrip()) T().exTwd = T().exJpy; // 台幣旅程換算比率固定為 1
   save(); renderAll();
 };
 // 設定：手動匯率（跟著目前貨幣存，本旅程有換匯匯率時優先用換匯）
@@ -961,7 +1005,7 @@ $('importFile').onchange = async ev => {
     alert('這個檔案不是 Travel Pocket 的備份檔'); return;
   }
   if (Array.isArray(j.entries)) { // 最早格式 → 包成一個旅程
-    const t = newTrip('日本旅遊', j.tripStart);
+    const t = newTrip('日本旅遊', j.tripStart, null, null, null, 'JPY');
     t.entries = j.entries.map(e => ({ ...e, pay: e.pay || 'cash' }));
     j = { trips: [t], active: t.id, rates: { JPY: j.rate || { auto: null, ts: 0, manual: null } } };
   }

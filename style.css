@@ -24,6 +24,8 @@
 /* 固定淺色版：不跟隨系統深色模式（Paian 指定淺灰色系為主） */
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* hidden 屬性要蓋得過各種 display 設定（例如 .setting-row 的 flex） */
+[hidden] { display: none !important; }
 html { font-size: 16px; }
 body {
   font-family: -apple-system, "SF Pro Text", "PingFang TC", "Noto Sans TC", sans-serif;

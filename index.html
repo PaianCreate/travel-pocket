@@ -122,20 +122,20 @@
       <span class="row-val" id="tripInfoShow"></span>
     </button>
     <label class="setting-row">
-      <span>當地貨幣</span>
+      <span>主要貨幣</span>
       <select id="tripCurSelect"></select>
     </label>
-    <label class="setting-row">
+    <label class="setting-row" id="rowExTwd">
       <span>換匯台幣<br><span class="muted small">實際付的台幣</span></span>
       <input type="text" inputmode="numeric" id="tripExTwdInput" placeholder="未填">
     </label>
-    <label class="setting-row">
-      <span>換到當地貨幣<br><span class="muted small">實際拿到的金額</span></span>
+    <label class="setting-row" id="rowExJpy">
+      <span id="labelExJpy">換到當地貨幣<br><span class="muted small">實際拿到的金額</span></span>
       <input type="text" inputmode="numeric" id="tripExJpyInput" placeholder="未填">
     </label>
   </section>
 
-  <section class="card">
+  <section class="card" id="rateCard">
     <div class="card-label" id="rateCardLabel">匯率 · 日圓 → 台幣</div>
     <div class="setting-row">
       <span>自動匯率</span>
