@@ -248,16 +248,21 @@ button { border: 0; background: none; cursor: pointer; }
 .cat-item.open .cat-row { background: var(--ink); color: var(--bg); border-radius: 14px 14px 0 0; }
 .cat-item.open .chev { transform: rotate(90deg); opacity: .7; }
 /* 明細：左邊日期、右邊金額 */
+/* 用 grid + display:contents，讓每一列的金額欄位上下對齊 */
 .cat-sub {
   list-style: none; background: var(--card-2);
   border-radius: 0 0 14px 14px; padding: 2px 14px 6px;
+  display: grid; grid-template-columns: 1fr auto auto; /* 不用 column-gap，分隔線才不會斷開 */
 }
-.cat-sub li {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 11px 0; border-top: 1px solid var(--line); font-size: .84rem;
+.cat-sub li { display: contents; }
+.cat-sub li > span {
+  padding-top: 11px; padding-bottom: 11px; /* 只設上下，左內距留給各欄自己 */
+  border-top: 1px solid var(--line);
+  font-size: .84rem; display: flex; align-items: center;
 }
 .ce-day { color: var(--ink-2); }
-.ce-amt { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ce-orig { color: var(--muted); justify-content: flex-end; padding-left: 12px; font-variant-numeric: tabular-nums; }
+.ce-amt { font-weight: 600; justify-content: flex-end; padding-left: 14px; font-variant-numeric: tabular-nums; }
 /* 中心的佔比 */
 .donut-center-pct { font-size: .74rem; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
 

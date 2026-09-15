@@ -126,7 +126,6 @@ const showTwd = () => S.display !== 'LOCAL' && !isTwdTrip();
 const dSym = () => showTwd() ? 'NT$' : CUR().sym;
 const dOne = e => showTwd() ? fmt(entryTwd(e)) : fmtLoc(e.jpy);           // 單筆
 const dSum = list => showTwd() ? fmt(sumTwd(list)) : fmtLoc(sumJpy(list)); // 一組記錄合計
-const dCash = v => showTwd() ? fmt(v * cashRate()) : fmtLoc(v);            // 純現金金額（餘額、預算）
 
 /* ---------- 輸入幣別（可以是台幣或任何貨幣）的小工具 ---------- */
 const symOf = code => code === 'TWD' ? 'NT$' : curOf(code).sym;
@@ -331,7 +330,8 @@ function renderHome() {
   const cashChip = $('heroCashChip');
   if (T().exJpy) {
     cashChip.hidden = false;
-    cashChip.textContent = `現金剩 ${dSym()}${dCash(T().exJpy - cashSpent())}`;
+    // 現金是實際拿在手上的鈔票，一律用記帳貨幣顯示，不跟著「畫面顯示」走
+    cashChip.textContent = `現金剩 ${CUR().sym}${fmtLoc(T().exJpy - cashSpent())}`;
   } else cashChip.hidden = true;
 
   // 現金日預算／續航提示
@@ -345,7 +345,7 @@ function renderHome() {
       // 有回程日：剩餘現金 ÷ 剩餘天數 ＝ 每天還可以花多少
       const daysLeft = dayOfDate(T().end) - dToday + 1;
       hint.hidden = false;
-      hint.innerHTML = `到回程還 ${daysLeft} 天，現金每天可花 <b>${dSym()}${dCash(cashLeft / daysLeft)}</b>`;
+      hint.innerHTML = `到回程還 ${daysLeft} 天，現金每天可花 <b>${CUR().sym}${fmtLoc(cashLeft / daysLeft)}</b>`;
     } else if (!T().end && dToday >= 1 && cashLeft > 0) {
       // 沒回程日：照目前燒錢速度估現金還能撐幾天
       const burn = cashSpent() / Math.max(dToday, 1);
@@ -355,7 +355,7 @@ function renderHome() {
       }
     } else if (cashLeft <= 0) {
       hint.hidden = false;
-      hint.innerHTML = `現金已用完，超支 <b>${dSym()}${dCash(-cashLeft)}</b>`;
+      hint.innerHTML = `現金已用完，超支 <b>${CUR().sym}${fmtLoc(-cashLeft)}</b>`;
     }
   }
 
@@ -560,8 +560,11 @@ function renderDonut(total) {
         .sort((a, b) => ((a.date + a.time) < (b.date + b.time) ? 1 : -1));
       for (const e of list) {
         const row = document.createElement('li');
+        // 顯示台幣時，前面帶一個淡灰的原幣金額
+        const orig = showTwd() ? `${CUR().sym}${fmtLoc(e.jpy)}` : '';
         row.innerHTML = `
           <span class="ce-day">Day ${dayOfDate(e.date)} · ${shortDate(e.date)}</span>
+          <span class="ce-orig">${orig}</span>
           <span class="ce-amt">${dSym()}${dOne(e)}</span>`;
         row.onclick = () => { selectedDate = e.date; showView('view-home'); };
         sub.appendChild(row);
