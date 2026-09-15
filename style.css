@@ -46,11 +46,29 @@ button { border: 0; background: none; cursor: pointer; }
   max-width: 480px; margin: 0 auto;
 }
 .view.active { display: block; animation: fadeUp .28s ease; }
+
+/* 首頁：上方固定，只有記帳清單自己捲動 */
+#view-home.active { display: flex; flex-direction: column; height: 100dvh; padding-bottom: 0; overflow: hidden; }
+#view-home .home-top { flex: 0 0 auto; }
+#view-home .entry-list {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 150px); /* 讓最後一筆不被分頁列與 + 鈕擋住 */
+  scrollbar-width: none;
+}
+#view-home .entry-list::-webkit-scrollbar { display: none; }
+/* 捲動時頂端淡出，讓卡片看起來是滑進天數列底下，而不是被硬切 */
+#view-home .entry-list.scrolled {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+}
 @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .view.active, .sheet, .fab svg { animation: none !important; transition: none !important; } }
 
 /* ===== 頁首 ===== */
 .page-head { margin: 18px 0 26px; position: relative; }
+#view-home .page-head { margin: 4px 0 14px; }
 .head-btn {
   position: absolute; top: 2px; right: 0;
   width: 44px; height: 44px; border-radius: 15px;
@@ -100,6 +118,14 @@ button { border: 0; background: none; cursor: pointer; }
 .hero { margin-bottom: 26px; }
 .hero-label { font-size: .8rem; color: var(--muted); letter-spacing: .04em; margin-bottom: 6px; }
 .hero-num { font-size: 3.6rem; font-weight: 640; letter-spacing: -.035em; line-height: 1.05; }
+/* 首頁壓縮上方高度，把空間讓給清單 */
+#view-home .hero { margin-bottom: 14px; }
+#view-home .hero-label { margin-bottom: 2px; }
+#view-home .hero-num { font-size: 2.9rem; }
+#view-home .hero-yen { font-size: 1.6rem; }
+#view-home .chip-row { margin-top: 10px; }
+#view-home .cash-hint { margin-top: 8px; }
+#view-home .day-chips { margin-bottom: 12px; }
 .hero-yen { font-size: 2rem; font-weight: 500; color: var(--ink-2); margin-right: 2px; }
 .chip-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .chip {
@@ -135,6 +161,7 @@ button { border: 0; background: none; cursor: pointer; }
 
 /* ===== 消費清單（可左滑刪除） ===== */
 .entry-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.entry-list > li { flex: 0 0 auto; } /* 不讓列被壓扁，超出就捲動 */
 .entry-row { position: relative; border-radius: 18px; overflow: hidden; }
 .entry-del {
   position: absolute; top: 0; right: 0; bottom: 0; width: 80px;

@@ -20,6 +20,8 @@
 
 <!-- ===== 頁面 1：記帳（主頁） ===== -->
 <main id="view-home" class="view active">
+ <!-- 上方固定區：標題、金額、天數列 -->
+ <div class="home-top">
   <header class="page-head">
     <!-- 旅程名稱＝首頁標題，點一下改名與改日期 -->
     <h1 class="h1-edit" id="tripTitle"></h1>
@@ -46,8 +48,9 @@
 
   <!-- 天數選擇列（Day 1、Day 2…水平捲動） -->
   <nav class="day-chips" id="dayChips" aria-label="選擇天數"></nav>
+ </div>
 
-  <!-- 當日消費清單 -->
+  <!-- 當日消費清單：只有這裡會上下捲動 -->
   <ul class="entry-list" id="entryList"></ul>
 </main>
 
@@ -97,7 +100,7 @@
 <!-- ===== 頁面 0：旅程列表（記帳的上一層） ===== -->
 <main id="view-trips" class="view">
   <header class="page-head">
-    <h1>旅程<span class="dot">.</span></h1>
+    <h1>Travel Pocket<span class="dot">.</span></h1>
     <p class="subtitle">選擇或新增旅遊記帳計劃</p>
   </header>
   <ul class="entry-list" id="tripList"></ul>

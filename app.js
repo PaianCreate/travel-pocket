@@ -365,6 +365,7 @@ function renderHome() {
   // 清單
   const ul = $('entryList');
   ul.innerHTML = '';
+  ul.classList.remove('scrolled'); // 重建清單後捲動位置歸零
   openedRow = null;
   if (!list.length) {
     ul.innerHTML = `<li class="empty">這天還沒有記錄<br>按右下角 + 記第一筆</li>`;
@@ -802,6 +803,9 @@ document.querySelectorAll('.tab').forEach(tab => {
 document.querySelectorAll('.tab-icon').forEach(el => { el.innerHTML = ICONS[el.dataset.icon]; });
 $('btnTrips').onclick = () => showView('view-trips');
 $('tripTitle').onclick = openDateSheet;
+$('entryList').addEventListener('scroll', ev => {
+  ev.target.classList.toggle('scrolled', ev.target.scrollTop > 4);
+}, { passive: true });
 $('btnNewTrip').onclick = openTripSheet;
 
 // 旅程資訊面板：完成（名稱＋日期一起存）
