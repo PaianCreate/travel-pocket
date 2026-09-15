@@ -233,9 +233,6 @@ function renderTrips() {
     const cardR = rateFor(t.cur) * (1 + (S.cardFee || 0) / 100);
     const twdTotal = Math.round(t.entries.reduce((s, e) => s + e.jpy * (e.pay === 'card' ? cardR : cashR), 0));
     const range = t.end ? `${shortDate(t.start)} – ${shortDate(t.end)}` : `${shortDate(t.start)} 出發`;
-    const days = t.end
-      ? Math.round((new Date(t.end + 'T00:00:00') - new Date(t.start + 'T00:00:00')) / 864e5) + 1
-      : null;
     const cashLeft = t.exJpy ? t.exJpy - sumJpy(t.entries.filter(e => e.pay !== 'card')) : null;
     const li = document.createElement('li');
     li.className = 'entry-row';
@@ -247,7 +244,7 @@ function renderTrips() {
           <div class="t-jpy">${cs.sym}${fmt(total)}</div>
           <div class="e-twd">NT$${fmt(twdTotal)}</div>
         </span>
-        <div class="t-meta">${cs.name}${days ? ` · ${days} 天` : ''} · ${range} · ${t.entries.length} 筆${cashLeft !== null ? ` · 現金剩 ${cs.sym}${fmt(cashLeft)}` : ''}</div>
+        <div class="t-meta">${cs.name} · ${range} · ${t.entries.length} 筆${cashLeft !== null ? ` · 現金剩 ${cs.sym}${fmt(cashLeft)}` : ''}</div>
       </div>`;
     const el = li.querySelector('.entry');
     attachSwipe(li, el);
@@ -322,15 +319,17 @@ function renderHome() {
 
   // 標題＝旅程名（點了可改），副標只留 Day 與日期
   $('tripTitle').innerHTML = `<span class="t-text">${escapeHtml(T().name)}<span class="dot">.</span></span>${ICONS.pen}`;
-  $('homeSubtitle').textContent = `Day ${dayN}${T().end ? ` / ${n}` : ''} · ${prettyDate(selectedDate)}`;
-  $('heroDayLabel').textContent = isToday ? '今日支出' : `Day ${dayN} 支出`;
+  // Day N 只在天數列出現一次，副標與大數字標籤都不再重複
+  $('homeSubtitle').textContent = prettyDate(selectedDate);
+  $('heroDayLabel').textContent = isToday ? '今日支出' : '這天支出';
   $('heroYen').textContent = dSym();
   $('heroJpy').textContent = dSum(list);
-  $('heroTwdChip').hidden = isTwdTrip();
+  $('heroTwdChip').hidden = isTwdTrip() || total === 0;
   // 副 chip 顯示另一種幣別，兩個數字都看得到
   $('heroTwdChip').textContent = showTwd()
     ? `${CUR().sym}${fmtLoc(total)}`
     : `≈ NT$${fmt(sumTwd(list))}`;
+  $('heroCountChip').hidden = !list.length; // 空清單下面已經有說明了
   $('heroCountChip').textContent = `${list.length} 筆`;
 
   // 現金餘額（有填換匯才顯示）
@@ -425,7 +424,7 @@ function renderHome() {
         <span class="e-icon">${ICONS[cat.id]}</span>
         <span class="e-main">
           <div class="e-note">${e.note ? escapeHtml(e.note) : cat.name}</div>
-          <div class="e-time">${cat.name} · ${e.time}${e.pay === 'card' ? ' · 刷卡' : ''}${e.oc ? ` · 原 ${symOf(e.oc)}${Number(e.oa).toLocaleString('en-US', { maximumFractionDigits: 2 })}` : ''}</div>
+          <div class="e-time">${e.note ? `${cat.name} · ` : ''}${e.time}${e.pay === 'card' ? ' · 刷卡' : ''}${e.oc ? ` · 原 ${symOf(e.oc)}${Number(e.oa).toLocaleString('en-US', { maximumFractionDigits: 2 })}` : ''}</div>
         </span>
         <span class="e-amount">
           <div class="e-jpy">${dSym()}${dOne(e)}</div>
@@ -497,7 +496,7 @@ function renderStats() {
   $('totalDaysChip').textContent = `${n} 天`;
   const avg = showTwd() ? sumTwd(E()) / (n || 1) : total / (n || 1);
   $('avgDayChip').textContent = `日均 ${dSym()}${showTwd() ? fmt(avg) : fmtLoc(avg)}`;
-  $('statsSubtitle').textContent = `${T().name} · ${prettyDate(T().start)} 出發 · 共 ${E().length} 筆`;
+  $('statsSubtitle').textContent = `${T().name} · 共 ${E().length} 筆`;
 
   // 現金／刷卡各花多少
   const cashList = E().filter(e => e.pay !== 'card'), cardList = E().filter(e => e.pay === 'card');
