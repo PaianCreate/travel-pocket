@@ -714,38 +714,9 @@ function openSheet(entry = null) {
   renderSheetAmount();
   renderCatChips();
   renderPayToggle();
-  renderQuickChips(entry);
   openSheetNav();
   $('sheetMask').classList.add('show');
   $('entrySheet').classList.add('show');
-}
-/* 最近記過的項目：一鍵帶入金額＋分類＋備註（編輯模式不顯示） */
-function renderQuickChips(editing) {
-  const box = $('quickChips');
-  box.innerHTML = '';
-  if (editing) return;
-  const seen = new Set(), picks = [];
-  // 從最新往回找，同樣的「分類＋備註＋金額」只留一個，取 3 筆
-  const sorted = E().slice().sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1));
-  for (const e of sorted) {
-    const key = `${e.cat}|${e.note}|${e.jpy}`;
-    if (seen.has(key)) continue;
-    seen.add(key); picks.push(e);
-    if (picks.length >= 3) break;
-  }
-  for (const e of picks) {
-    const cat = CATS.find(c => c.id === e.cat) || CATS[5];
-    const b = document.createElement('button');
-    b.className = 'quick-chip';
-    b.innerHTML = `${escapeHtml(e.note || cat.name)} <b>${CUR().sym}${fmtLoc(e.jpy)}</b>`;
-    b.onclick = () => {
-      sheetAmount = String(e.jpy); sheetCat = e.cat; sheetPay = e.pay || 'cash';
-      sheetCur = T().cur; // 快速帶入的金額是主貨幣
-      $('noteInput').value = e.note || '';
-      renderCurBtn(); updateDotKey(); renderSheetAmount(); renderCatChips(); renderPayToggle();
-    };
-    box.appendChild(b);
-  }
 }
 const SHEETS = ['entrySheet', 'tripSheet', 'curSheet', 'dateSheet', 'daySheet'];
 function hideSheets() {
